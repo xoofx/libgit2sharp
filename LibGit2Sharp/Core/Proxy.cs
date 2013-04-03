@@ -1708,7 +1708,54 @@ namespace LibGit2Sharp.Core
 
         #endregion
 
+        #region git_refdb_
+
+        public static void git_refdb_set_backend(ReferenceDatabaseSafeHandle refdb, IntPtr backend)
+        {
+            Ensure.ZeroResult(NativeMethods.git_refdb_set_backend(refdb, backend));
+        }
+
+        public static void git_refdb_free(IntPtr refdb)
+        {
+            NativeMethods.git_refdb_free(refdb);
+        }
+
+        #endregion
+
         #region git_reference_
+
+        public static IntPtr git_reference__alloc(string name, ObjectId oid)
+        {
+            // GitOid is not nullable, do the IntPtr marshalling ourselves  
+            IntPtr oidPtr;
+
+            if (oid == null)
+            {
+                oidPtr = IntPtr.Zero;
+            }
+            else
+            {
+                oidPtr = Marshal.AllocHGlobal(20);
+                Marshal.Copy(oid.Oid.Id, 0, oidPtr, 20);
+            }
+
+            try
+            {
+                return NativeMethods.git_reference__alloc(name, oidPtr, IntPtr.Zero);
+            }
+            finally
+            {
+                if (oidPtr != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(oidPtr);
+                }
+            }
+        }
+
+        public static IntPtr  git_reference__alloc_symbolic(string name, string target)
+        {
+            return NativeMethods.git_reference__alloc_symbolic(name, target);
+        }
 
         public static ReferenceSafeHandle git_reference_create(RepositorySafeHandle repo, string name, ObjectId targetId, bool allowOverwrite,
             string logMessage)
@@ -1791,6 +1838,11 @@ namespace LibGit2Sharp.Core
             return NativeMethods.git_reference_name(reference);
         }
 
+        public static string git_reference_name(NotOwnedReferenceSafeHandle reference)
+        {
+            return NativeMethods.git_reference_name(reference);
+        }
+
         public static void git_reference_remove(RepositorySafeHandle repo, string name)
         {
             int res = NativeMethods.git_reference_remove(repo, name);
@@ -1798,6 +1850,11 @@ namespace LibGit2Sharp.Core
         }
 
         public static ObjectId git_reference_target(ReferenceSafeHandle reference)
+        {
+            return NativeMethods.git_reference_target(reference).MarshalAsObjectId();
+        }
+
+        public static ObjectId git_reference_target(NotOwnedReferenceSafeHandle reference)
         {
             return NativeMethods.git_reference_target(reference).MarshalAsObjectId();
         }
@@ -1839,7 +1896,17 @@ namespace LibGit2Sharp.Core
             return NativeMethods.git_reference_symbolic_target(reference);
         }
 
+        public static string git_reference_symbolic_target(NotOwnedReferenceSafeHandle reference)
+        {
+            return NativeMethods.git_reference_symbolic_target(reference);
+        }
+
         public static GitReferenceType git_reference_type(ReferenceSafeHandle reference)
+        {
+            return NativeMethods.git_reference_type(reference);
+        }
+
+        public static GitReferenceType git_reference_type(NotOwnedReferenceSafeHandle reference)
         {
             return NativeMethods.git_reference_type(reference);
         }
@@ -2396,6 +2463,15 @@ namespace LibGit2Sharp.Core
             return NativeMethods.git_repository_path(repo);
         }
 
+        public static ReferenceDatabaseSafeHandle git_repository_refdb(RepositorySafeHandle repo)
+        {
+            ReferenceDatabaseSafeHandle handle;
+            int res = NativeMethods.git_repository_refdb(out handle, repo);
+            Ensure.ZeroResult(res);
+
+            return handle;
+        }
+
         public static void git_repository_set_config(RepositorySafeHandle repo, ConfigurationSafeHandle config)
         {
             NativeMethods.git_repository_set_config(repo, config);
@@ -2605,7 +2681,7 @@ namespace LibGit2Sharp.Core
             SignatureSafeHandle handle;
 
             int res = NativeMethods.git_signature_new(out handle, name, email, when.ToSecondsSinceEpoch(),
-                                                      (int)when.Offset.TotalMinutes);
+                (int)when.Offset.TotalMinutes);
             Ensure.ZeroResult(res);
 
             return handle;
@@ -2720,8 +2796,8 @@ namespace LibGit2Sharp.Core
 
                 case (int)GitErrorCode.Ambiguous:
                     throw new AmbiguousSpecificationException(CultureInfo.InvariantCulture,
-                                                              "More than one file matches the pathspec '{0}'. " +
-                                                              "You can either force a literal path evaluation (GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH), or use git_status_foreach().",
+                        "More than one file matches the pathspec '{0}'. " +
+                        "You can either force a literal path evaluation (GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH), or use git_status_foreach().",
                                                               path);
 
                 default:
