@@ -5,13 +5,14 @@
   "tags": [ "" ],
   "projectUrl": "",
   "licenseUrl": "",
+  "compilationOptions": { "allowUnsafe": true },
 
   "dependencies": {
   },
 
-  "frameworks" : {
+  "frameworks": {
     "dnx451": { },
-    "dnxcore50" : {
+    "dnxcore50": {
       "dependencies": {
         "System.Collections": "4.0.10-beta-22816",
         "System.Linq": "4.0.0-beta-22816",
