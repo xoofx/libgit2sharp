@@ -2,9 +2,37 @@
   "locked": false,
   "version": -9998,
   "projectFileDependencyGroups": {
-    "": [],
-    ".NETFramework,Version=v4.0": [],
+    "": [
+      "LibGit2Sharp.NativeBinaries >= 1.0.25"
+    ],
     "DNX,Version=v4.5.1": []
   },
-  "libraries": {}
+  "libraries": {
+    "LibGit2Sharp.NativeBinaries/1.0.25": {
+      "serviceable": false,
+      "sha": "Q8qzrF9DFVo52yXnQ8bVlgPFk94UN8vLlJ1lDsnTAgQrx4k4jNHz061yP9cfVNooJtSqD4cWPgiTHSCdLBUD/w==",
+      "frameworks": {
+        "DNX,Version=v4.5.1": {
+          "dependencies": {},
+          "frameworkAssemblies": [],
+          "runtimeAssemblies": [],
+          "compileAssemblies": []
+        }
+      },
+      "files": [
+        "LibGit2Sharp.NativeBinaries.1.0.25.nupkg",
+        "LibGit2Sharp.NativeBinaries.1.0.25.nupkg.sha512",
+        "LibGit2Sharp.NativeBinaries.nuspec",
+        "build/LibGit2Sharp.NativeBinaries.props",
+        "libgit2/libgit2.license.txt",
+        "libgit2/libgit2_hash.txt",
+        "libgit2/linux/amd64/libgit2-9bbc8f3.so",
+        "libgit2/osx/libgit2-9bbc8f3.dylib",
+        "libgit2/windows/amd64/git2-9bbc8f3.dll",
+        "libgit2/windows/amd64/git2-9bbc8f3.pdb",
+        "libgit2/windows/x86/git2-9bbc8f3.dll",
+        "libgit2/windows/x86/git2-9bbc8f3.pdb"
+      ]
+    }
+  }
 }

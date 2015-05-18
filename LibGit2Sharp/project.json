@@ -8,10 +8,10 @@
   "compilationOptions": { "allowUnsafe": true },
 
   "dependencies": {
+    "LibGit2Sharp.NativeBinaries": "1.0.25"
   },
 
   "frameworks": {
-    "net40": { },
     "dnx451": { }
   }
 }
