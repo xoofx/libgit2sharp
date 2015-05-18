@@ -35,6 +35,7 @@ _ReSharper*/
 *.userprefs
 *.swp
 *.DotSettings
+.vs/
 #Ignore custom generated files
 LibGit2Sharp/Core/UniqueIdentifier.cs
 LibGit2Sharp/Core/NativeDllName.cs
