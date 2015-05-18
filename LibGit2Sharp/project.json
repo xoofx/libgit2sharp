@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "1.0.0-*",
   "description": "",
   "authors": [ "" ],
@@ -15,10 +15,16 @@
     "dnx451": { },
     "dnxcore50": {
       "dependencies": {
+        "Microsoft.CSharp": "4.0.0-beta-22816",
         "System.Collections": "4.0.10-beta-22816",
+        "System.Diagnostics.Debug": "4.0.10-beta-22816",
+        "System.Globalization": "4.0.10-beta-22816",
         "System.Linq": "4.0.0-beta-22816",
-        "System.Threading": "4.0.10-beta-22816",
-        "Microsoft.CSharp": "4.0.0-beta-22816"
+        "System.Reflection": "4.0.10-beta-22816",
+        "System.Runtime.Extensions": "4.0.10-beta-22816",
+        "System.Runtime.InteropServices": "4.0.20-beta-22816",
+        "System.Runtime.Serialization.Primitives": "4.0.10-beta-22816",
+        "System.Threading": "4.0.10-beta-22816"
       }
     }
   }
