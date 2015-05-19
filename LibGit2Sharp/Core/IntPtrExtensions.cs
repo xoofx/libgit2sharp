@@ -11,7 +11,7 @@ namespace LibGit2Sharp.Core
             {
                 return default(T);
             }
-            return (T)Marshal.PtrToStructure(ptr, typeof(T));
+            return Marshal.PtrToStructure<T>(ptr);
         }
     }
 }
