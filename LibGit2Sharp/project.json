@@ -19,12 +19,18 @@
         "System.Collections": "4.0.10-beta-22816",
         "System.Diagnostics.Debug": "4.0.10-beta-22816",
         "System.Globalization": "4.0.10-beta-22816",
+        "System.IO.FileSystem": "4.0.0-beta-22816",
+        "System.IO.UnmanagedMemoryStream": "4.0.0-beta-22816",
         "System.Linq": "4.0.0-beta-22816",
+        "System.Net.Primitives": "4.0.10-beta-22816",
         "System.Reflection": "4.0.10-beta-22816",
         "System.Runtime.Extensions": "4.0.10-beta-22816",
         "System.Runtime.InteropServices": "4.0.20-beta-22816",
         "System.Runtime.Serialization.Primitives": "4.0.10-beta-22816",
-        "System.Threading": "4.0.10-beta-22816"
+        "System.Text.Encoding.Extensions": "4.0.10-beta-22816",
+        "System.Text.RegularExpressions": "4.0.10-beta-22816",
+        "System.Threading": "4.0.10-beta-22816",
+        "System.Threading.Thread": "4.0.0-beta-22816"
       }
     }
   }
