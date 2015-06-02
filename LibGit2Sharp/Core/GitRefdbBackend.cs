@@ -131,4 +131,135 @@ namespace LibGit2Sharp.Core
             IntPtr referenceName,
             IntPtr data);
     }
+
+    internal class GitRefDbBackend2
+    {
+        uint version;
+
+        public exists_callback Exists;
+        public lookup_callback Lookup;
+        public iterator_callback Iter;
+        public write_callback Write;
+        public rename_callback Rename;
+        public delete_callback Delete;
+        public compress_callback Compress;
+        public has_log_callback HasLog;
+        public ensure_log_callback EnsureLog;
+        public free_callback FreeBackend;
+        public reflog_write_callback ReflogWrite;
+        public reflog_read_callback ReflogRead;
+        public reflog_rename_callback ReflogRename;
+        public reflog_delete_callback ReflogDelete;
+        public ref_lock_callback RefLock;
+        public ref_unlock_callback RefUnlock;
+
+        /* The libgit2 structure definition ends here. Subsequent fields are for libgit2sharp bookkeeping. */
+
+        /// Queries the refdb backend to determine if the given ref_name
+        /// A refdb implementation must provide this function.
+        public delegate int exists_callback(
+            out int exists,
+            GitRefDbBackend2 backend,
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8Marshaler))] string ref_name);
+
+        /// Queries the refdb backend for a given reference.  A refdb
+        /// implementation must provide this function.
+        public delegate int lookup_callback(
+            IntPtr git_reference,
+            GitRefDbBackend2 backend,
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8Marshaler))] string ref_name);
+
+        /// <summary>
+        /// Allocate an iterator object for the backend.
+        /// A refdb implementation must provide this function.
+        /// </summary>
+        public delegate int iterator_callback(
+            IntPtr iter,
+            GitRefDbBackend2 backend,
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8Marshaler))] string glob);
+
+        /// Writes the given reference to the refdb.  A refdb implementation
+        /// must provide this function.
+        public delegate int write_callback(
+            GitRefDbBackend2 backend,
+            IntPtr reference, // const git_reference *
+            [MarshalAs(UnmanagedType.Bool)] bool force,
+            IntPtr who, // const git_signature *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string message, // const char *
+            ref GitOid old, // const git_oid *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string old_target // const char *
+            );
+
+        public delegate int rename_callback(
+            IntPtr reference, // git_reference **
+            GitRefDbBackend2 backend, // git_refdb_backend *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string old_name, // const char *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string new_name, // const char *
+            [MarshalAs(UnmanagedType.Bool)] bool force,
+            IntPtr who, // const git_signature *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string message // const char *
+            );
+
+        public delegate int delete_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string ref_name, // const char *
+            ref GitOid old, // const git_oid *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string old_target // const char *
+            );
+
+        public delegate int compress_callback(
+            GitRefDbBackend2 backend // git_refdb_backend *
+            );
+
+        public delegate int has_log_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string refname // const char *
+            );
+
+        public delegate int ensure_log_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string refname // const char *
+            );
+
+        public delegate void free_callback(
+            GitRefDbBackend2 backend // git_refdb_backend *
+            );
+
+        public delegate int reflog_read_callback(
+            IntPtr git_reflog, // git_reflog *
+            GitRefDbBackend2 backend, // git_refdb_backend *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string refname // const char *
+            );
+
+        public delegate int reflog_write_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend *
+            IntPtr git_reflog // git_reflog *
+            );
+
+        public delegate int reflog_rename_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string oldName, // const char *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string newName // const char *
+            );
+
+        public delegate int reflog_delete_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string name // const char *
+            );
+
+        public delegate int ref_lock_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string name // const char *
+            );
+
+        public delegate int ref_unlock_callback(
+            GitRefDbBackend2 backend, // git_refdb_backend
+            IntPtr payload,
+            [MarshalAs(UnmanagedType.Bool)] bool force,
+            [MarshalAs(UnmanagedType.Bool)] bool update_reflog,
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string refName, // const char *
+            IntPtr who, // const git_signature *
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string message// const char *
+            );
+    }
 }

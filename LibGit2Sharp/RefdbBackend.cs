@@ -47,30 +47,11 @@ namespace LibGit2Sharp
         public abstract bool Lookup(string referenceName, out bool isSymbolic, out ObjectId oid, out string symbolic);
 
         /// <summary>
-        ///  Iterates the references in this backend.
+        /// 
         /// </summary>
-        /// <param name="callback">The callback to execute for each reference</param>
-        /// <param name="includeSymbolicRefs">True is symbolic references should be enumerated.</param>
-        /// <param name="includeDirectRefs">True is symbolic references should be enumerated.</param>
-        /// <returns>The return code from the callback</returns>
-        public abstract int Foreach(ForeachCallback callback, bool includeSymbolicRefs, bool includeDirectRefs);
-
-        /// <summary>
-        ///  Iterates the references in this backend.
-        /// </summary>
-        /// <param name="glob">The glob pattern reference names must match</param>
-        /// <param name="callback">The callback to execute for each reference</param>
-        /// <param name="includeSymbolicRefs">True is symbolic references should be enumerated.</param>
-        /// <param name="includeDirectRefs">True is symbolic references should be enumerated.</param>
-        /// <returns>The return code from the callback</returns>
-        public abstract int ForeachGlob(string glob, ForeachCallback callback, bool includeSymbolicRefs, bool includeDirectRefs);
-
-        /// <summary>
-        ///  The signature of the callback method provided to the reference iterators.
-        /// </summary>
-        /// <param name="referenceCanonicalName">The name of the reference in the backend</param>
-        /// <returns>0 if enumeration should continue, any other value on error</returns>
-        public delegate int ForeachCallback(string referenceCanonicalName);
+        /// <param name="glob"></param>
+        /// <returns></returns>
+        public abstract object Iterator(string glob);
 
         /// <summary>
         ///  Write the given direct reference to the backend.
@@ -101,6 +82,50 @@ namespace LibGit2Sharp
         ///  Free any data associated with this backend.
         /// </summary>
         public abstract void Free();
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="refName"></param>
+        /// <returns></returns>
+        public abstract bool HasReflog(string refName);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="refName"></param>
+        public abstract void EnsureReflog(string refName);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public abstract void ReadReflog();
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public abstract void WriteReflog();
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="oldName"></param>
+        /// <param name="newName"></param>
+        public abstract void RenameReflog(string oldName, string newName);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="refName"></param>
+        /// <returns></returns>
+        public abstract bool LockReference(string refName);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="refname"></param>
+        /// <returns></returns>
+        public abstract bool UnlockReference(string refname);
 
         private IntPtr nativeBackendPointer;
 
@@ -148,14 +173,25 @@ namespace LibGit2Sharp
             // to native memory with StructureToPtr), we need to bind to static delegates. If at construction time
             // we were to bind to the methods directly, that's the same as newing up a fresh delegate every time.
             // Those delegates won't be rooted in the object graph and can be collected as soon as StructureToPtr finishes.
-            public static readonly GitRefdbBackend.exists_callback ExistsCallback = Exists;
-            public static readonly GitRefdbBackend.lookup_callback LookupCallback = Lookup;
-            public static readonly GitRefdbBackend.foreach_callback ForeachCallback = Foreach;
-            public static readonly GitRefdbBackend.foreach_glob_callback ForeachGlobCallback = ForeachGlob;
-            public static readonly GitRefdbBackend.write_callback WriteCallback = Write;
-            public static readonly GitRefdbBackend.delete_callback DeleteCallback = Delete;
-            public static readonly GitRefdbBackend.compress_callback CompressCallback = Compress;
-            public static readonly GitRefdbBackend.free_callback FreeCallback = Free;
+            public static readonly GitRefDbBackend2.exists_callback ExistsCallback = Exists;
+            public static readonly GitRefDbBackend2.lookup_callback LookupCallback = Lookup;
+
+            public static readonly GitRefDbBackend2.iterator_callback IterCallback = GetIterator;
+
+            public static readonly GitRefDbBackend2.write_callback WriteCallback = Write;
+            public static readonly GitRefDbBackend2.rename_callback RenameCallback = Rename;
+            public static readonly GitRefDbBackend2.delete_callback DeleteCallback = Delete;
+
+            public static readonly GitRefDbBackend2.compress_callback CompressCallback = Compress;
+            public static readonly GitRefDbBackend2.free_callback FreeCallback = Free;
+
+            public static readonly GitRefDbBackend2.reflog_write_callback ReflogWriteCallback = ReflogWrite;
+            public static readonly GitRefDbBackend2.reflog_read_callback ReflogReadCallback = ReflogWrite;
+            public static readonly GitRefDbBackend2.reflog_rename_callback ReflogRenameCallback = ReflogWrite;
+            public static readonly GitRefDbBackend2.reflog_delete_callback ReflogDeleteCallback = ReflogWrite;
+
+            public static readonly GitRefDbBackend2.ref_lock_callback RefLockCallback = LockRef;
+            public static readonly GitRefDbBackend2.ref_unlock_callback RefUnlock = UnlockRef;
 
             private static bool TryMarshalRefdbBackend(out RefdbBackend refdbBackend, IntPtr backend)
             {
@@ -406,27 +442,6 @@ namespace LibGit2Sharp
 
                 refdbBackend.Free();
             }
-
-            private class ForeachState
-            {
-                public ForeachState(GitRefdbBackend.foreach_callback_callback cb, IntPtr data)
-                {
-                    this.cb = cb;
-                    this.data = data;
-                    this.ManagedCallback = CallbackMethod;
-                }
-
-                private int CallbackMethod(string name)
-                {
-                    IntPtr namePtr = StrictUtf8Marshaler.FromManaged(name);
-
-                    return cb(namePtr, data);
-                }
-
-                public readonly ForeachCallback ManagedCallback;
-
-                private readonly GitRefdbBackend.foreach_callback_callback cb;
-                private readonly IntPtr data;
             }
         }
 
@@ -434,7 +449,7 @@ namespace LibGit2Sharp
         ///   Flags used by subclasses of RefdbBackend to indicate which operations they support.
         /// </summary>
         [Flags]
-        protected enum RefdbBackendOperations
+        public enum RefdbBackendOperations
         {
             /// <summary>
             ///   This RefdbBackend declares that it supports the Compress method.
