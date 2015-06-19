@@ -144,14 +144,6 @@ namespace LibGit2Sharp.Core
         [DllImport(libgit2)]
         internal static extern Int64 git_blob_rawsize(GitObjectSafeHandle blob);
 
-        internal delegate int ref_db_next(
-            out ReferenceSafeHandle reference,
-            IntPtr iter);
-
-        internal delegate int ref_db_next_name(
-            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(StrictUtf8Marshaler))] string ref_name,
-            IntPtr iter);
-
         internal delegate void ref_db_free(
             IntPtr iter);
 
@@ -178,16 +170,6 @@ namespace LibGit2Sharp.Core
             [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(StrictUtf8Marshaler))] string branch_name,
             GitAnnotatedCommitHandle target,
             [MarshalAs(UnmanagedType.Bool)] bool force);
-
-        [DllImport(libgit2)]
-        internal static extern int git_refdb_init_backend(
-            GitRefDbBackend2 backend,
-            uint version);
-
-        [DllImport(libgit2)]
-        internal static extern int git_refdb_init_backend(
-            IntPtr refdb,
-            GitRefDbBackend2 backend);
 
         [DllImport(libgit2)]
         internal static extern int git_branch_delete(

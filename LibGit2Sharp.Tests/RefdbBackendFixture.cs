@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using LibGit2Sharp.Tests.TestHelpers;
@@ -111,7 +112,8 @@ namespace LibGit2Sharp.Tests
                 backend.References["refs/tags/broken3"] = new MockRefdbReference("the/type/filtering");
                 backend.References["refs/tags/correct1"] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
 
-                Assert.True(repository.Tags.Select(r => r.CanonicalName).SequenceEqual(new List<string> { "refs/tags/correct1" }));
+                List<string> tags = repository.Tags.Select(r => r.CanonicalName).ToList();
+                Assert.True(tags.SequenceEqual(new List<string> { "refs/tags/correct1" }));
             }
         }
 
@@ -249,7 +251,7 @@ namespace LibGit2Sharp.Tests
             {
                 get
                 {
-                    return RefdbBackendOperations.Compress | RefdbBackendOperations.ForeachGlob;
+                    return RefdbBackendOperations.Compress;
                 }
             }
 
@@ -260,9 +262,9 @@ namespace LibGit2Sharp.Tests
 
             public override bool Lookup(string referenceName, out bool isSymbolic, out ObjectId oid, out string symbolic)
             {
-                MockRefdbReference reference = references[referenceName];
-
-                if (reference == null)
+                MockRefdbReference reference;
+                
+                if (!references.TryGetValue(referenceName, out reference))
                 {
                     isSymbolic = false;
                     oid = null;
@@ -274,61 +276,6 @@ namespace LibGit2Sharp.Tests
                 oid = reference.Oid;
                 symbolic = reference.Symbolic;
                 return true;
-            }
-
-            public override int Foreach(ForeachCallback callback, bool includeSymbolicRefs, bool includeDirectRefs)
-            {
-                int result = 0;
-
-                foreach (KeyValuePair<string, MockRefdbReference> kvp in references)
-                {
-                    var referenceType = kvp.Value.Type;
-
-                    if ((referenceType == ReferenceType.Symbolic && !includeSymbolicRefs) ||
-                        (referenceType == ReferenceType.Oid && !includeDirectRefs))
-                    {
-                        continue;
-                    }
-
-                    if ((result = callback(kvp.Key)) != 0)
-                    {
-                        return result;
-                    }
-                }
-
-                return result;
-            }
-
-            public override int ForeachGlob(string glob, ForeachCallback callback, bool includeSymbolicRefs, bool includeDirectRefs)
-            {
-                int result = 0;
-
-                var globRegex = new Regex("^" +
-                    Regex.Escape(glob).Replace(@"\*", ".*").Replace(@"\?", ".") +
-                    "$");
-
-                foreach (KeyValuePair<string, MockRefdbReference> kvp in references)
-                {
-                    var referenceType = kvp.Value.Type;
-
-                    if ((referenceType == ReferenceType.Symbolic && !includeSymbolicRefs) ||
-                        (referenceType == ReferenceType.Oid && !includeDirectRefs))
-                    {
-                        continue;
-                    }
-
-                    if (!globRegex.IsMatch(kvp.Key))
-                    {
-                        continue;
-                    }
-
-                    if ((result = callback(kvp.Key)) != 0)
-                    {
-                        return result;
-                    }
-                }
-
-                return result;
             }
 
             public override void WriteDirectReference(string referenceCanonicalName, ObjectId target)
@@ -356,6 +303,86 @@ namespace LibGit2Sharp.Tests
             public override void Free()
             {
                 references.Clear();
+            }
+
+            public override RefdbIterator GenerateRefIterator(string glob)
+            {
+                return new MockRefDbIterator(References);
+            }
+
+            public override bool HasReflog(string refName)
+            {
+                return false;
+            }
+
+            public override void EnsureReflog(string refName)
+            {
+                
+            }
+
+            public override void ReadReflog()
+            {
+            }
+
+            public override void WriteReflog()
+            {
+                throw new NotImplementedException();
+            }
+
+            public override void RenameReflog(string oldName, string newName)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool LockReference(string refName)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool UnlockReference(string refname)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        private class MockRefDbIterator : RefdbIterator
+        {
+            IDictionary<string, MockRefdbReference> references;
+            IEnumerator<KeyValuePair<string, MockRefdbReference>> nextIterator;
+
+            public MockRefDbIterator(IDictionary<string, MockRefdbReference> references)
+            {
+                this.references = references;
+                nextIterator = references.GetEnumerator();
+            }
+
+            public override bool Next(out string referenceName, out bool isSymbolic, out ObjectId oid, out string symbolic)
+            {
+                if(!nextIterator.MoveNext())
+                {
+                    referenceName = null;
+                    isSymbolic = false;
+                    oid = null;
+                    symbolic = null;
+                    return false;
+                }
+
+                KeyValuePair<string, MockRefdbReference> next = nextIterator.Current;
+                referenceName = next.Key;
+                isSymbolic = next.Value.Type == ReferenceType.Symbolic;
+                oid = next.Value.Oid;
+                symbolic = next.Value.Symbolic;
+                return true;
+            }
+
+            public override string NextName()
+            {
+                if (nextIterator.MoveNext())
+                {
+                    return nextIterator.Current.Key;
+                }
+
+                return null;
             }
         }
 
