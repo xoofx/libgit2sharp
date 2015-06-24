@@ -58,14 +58,28 @@ namespace LibGit2Sharp
         /// </summary>
         /// <param name="referenceCanonicalName">The reference to write</param>
         /// <param name="target">The <see cref="ObjectId"/> of the target <see cref="GitObject"/>.</param>
-        public abstract void WriteDirectReference(string referenceCanonicalName, ObjectId target);
+        /// <param name="force"></param>
+        public abstract void WriteDirectReference(string referenceCanonicalName, ObjectId target, bool force);
 
         /// <summary>
         ///  Write the given symbolic reference to the backend.
         /// </summary>
         /// <param name="referenceCanonicalName">The reference to write</param>
         /// <param name="targetCanonicalName">The target of the symbolic reference</param>
-        public abstract void WriteSymbolicReference(string referenceCanonicalName, string targetCanonicalName);
+        /// <param name="force"></param>
+        public abstract void WriteSymbolicReference(string referenceCanonicalName, string targetCanonicalName, bool force);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="referenceName"></param>
+        /// <param name="newReferenceName"></param>
+        /// <param name="force"></param>
+        /// <param name="isSymbolic"></param>
+        /// <param name="oid"></param>
+        /// <param name="symbolic"></param>
+        public abstract void RenameReference(string referenceName, string newReferenceName, bool force,
+                                             out bool isSymbolic, out ObjectId oid, out string symbolic);
 
         /// <summary>
         ///  Delete the given reference from the backend.
@@ -267,9 +281,7 @@ namespace LibGit2Sharp
                         return (int)GitErrorCode.NotFound;
                     }
 
-                    referencePtr = isSymbolic ?
-                        Proxy.git_reference__alloc_symbolic(refName, symbolic) :
-                        Proxy.git_reference__alloc(refName, oid);
+                    referencePtr = AllocNativeRef(refName, isSymbolic, oid, symbolic);
                 }
                 catch (Exception ex)
                 {
@@ -279,6 +291,13 @@ namespace LibGit2Sharp
 
                 return referencePtr != IntPtr.Zero ?
                     (int)GitErrorCode.Ok : (int)GitErrorCode.Error;
+            }
+
+            private static IntPtr AllocNativeRef(string refName, bool isSymbolic, ObjectId oid, string symbolic)
+            {
+                return isSymbolic ?
+                    Proxy.git_reference__alloc_symbolic(refName, symbolic) :
+                    Proxy.git_reference__alloc(refName, oid);
             }
 
             private static int GetIterator(
@@ -298,9 +317,7 @@ namespace LibGit2Sharp
 
                 try
                 {
-                    // generate a new iterator
                     RefdbIterator refIter = refdbBackend.GenerateRefIterator(glob);
-
                     iterPtr = refIter.GitRefdbIteratorPtr;
                 }
                 catch (Exception ex)
@@ -319,9 +336,9 @@ namespace LibGit2Sharp
                 IntPtr referencePtr,
                 bool force,
                 IntPtr who,
-                string message,
-                ref GitOid oldId,
-                string oldTarget)
+                IntPtr messagePtr,
+                IntPtr oidPtr,
+                IntPtr oldTargetPtr)
             {
                 RefdbBackend refdbBackend;
                 if (!TryMarshalRefdbBackend(out refdbBackend, backend))
@@ -333,18 +350,36 @@ namespace LibGit2Sharp
                 string name = Proxy.git_reference_name(referenceHandle);
                 GitReferenceType type = Proxy.git_reference_type(referenceHandle);
 
+                if (oidPtr != IntPtr.Zero)
+                {
+                    GitOid oid = new GitOid();
+                    Marshal.Copy(oidPtr, oid.Id, 0, 20);
+                }
+
+                string message = null;
+                if (messagePtr != IntPtr.Zero)
+                {
+                    message = LaxUtf8Marshaler.FromNative(messagePtr);
+                }
+
+                string oldTarget = null;
+                if (oldTargetPtr != IntPtr.Zero)
+                {
+                    oldTarget = LaxUtf8Marshaler.FromNative(oldTargetPtr);
+                }
+
                 try
                 {
                     switch (type)
                     {
                         case GitReferenceType.Oid:
                             ObjectId targetOid = Proxy.git_reference_target(referenceHandle);
-                            refdbBackend.WriteDirectReference(name, targetOid);
+                            refdbBackend.WriteDirectReference(name, targetOid, force);
                             break;
 
                         case GitReferenceType.Symbolic:
                             string targetIdentifier = Proxy.git_reference_symbolic_target(referenceHandle);
-                            refdbBackend.WriteSymbolicReference(name, targetIdentifier);
+                            refdbBackend.WriteSymbolicReference(name, targetIdentifier, force);
                             break;
 
                         default:
@@ -352,6 +387,11 @@ namespace LibGit2Sharp
                                 String.Format(CultureInfo.InvariantCulture,
                                     "Unable to build a new reference from a type '{0}'.", type));
                     }
+                }
+                catch (NameConflictException ex)
+                {
+                    Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
+                    return (int)GitErrorCode.Exists;
                 }
                 catch (Exception ex)
                 {
@@ -371,8 +411,41 @@ namespace LibGit2Sharp
                 IntPtr who,
                 IntPtr messagePtr)
             {
-                reference = IntPtr.Zero;
-                return 0;
+                RefdbBackend refdbBackend;
+                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
+                {
+                    reference = IntPtr.Zero;
+                    return (int)GitErrorCode.Error;
+                }
+
+                try
+                {
+                    string oldName = LaxUtf8Marshaler.FromNative(oldNamePtr);
+                    string newName = LaxUtf8Marshaler.FromNative(newNamePtr);
+
+                    bool isSymbolic;
+                    ObjectId oid;
+                    string symbolic;
+
+                    // TODO: verify that old / new name is not null
+                    refdbBackend.RenameReference(oldName, newName, force,
+                                                 out isSymbolic, out oid, out symbolic);
+
+                    reference = AllocNativeRef(newName, isSymbolic, oid, symbolic);
+                    return (int)GitErrorCode.Ok;
+                }
+                catch (NameConflictException ex)
+                {
+                    reference = IntPtr.Zero;
+                    Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
+                    return (int)GitErrorCode.Exists;
+                }
+                catch (Exception ex)
+                {
+                    reference = IntPtr.Zero;
+                    Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
+                    return (int)GitErrorCode.Error;
+                }
             }
 
             private static int Delete(
@@ -438,7 +511,6 @@ namespace LibGit2Sharp
                 reflogPtr = IntPtr.Zero;
                 return 0;
             }
-            
 
             public static int ReflogWrite(
                 IntPtr backend, // git_refdb_backend *

@@ -66,7 +66,7 @@ namespace LibGit2Sharp.Tests
         }
 
         [Fact]
-        public void CannotOverwriteExistingInRefdbBackend()
+        public void CannotOverwriteExistingDirectReferenceInRefdbBackend()
         {
             string path = SandboxStandardTestRepo();
             using (var repository = new Repository(path))
@@ -76,6 +76,54 @@ namespace LibGit2Sharp.Tests
                 repository.Refs.Add("refs/heads/newref", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false);
 
                 Assert.Throws<NameConflictException>(() => repository.Refs.Add("refs/heads/newref", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false));
+            }
+        }
+
+        [Fact]
+        public void CannotOverwriteExistingSymbolicReferenceInRefdbBackend()
+        {
+            string path = SandboxStandardTestRepo();
+            using (var repository = new Repository(path))
+            {
+                SetupBackend(repository);
+
+                repository.Refs.Add("refs/heads/directRef", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false);
+                repository.Refs.Add("refs/heads/directRef2", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false);
+                repository.Refs.Add("refs/heads/newref", "refs/heads/directRef", false);
+
+                Assert.Throws<NameConflictException>(() => repository.Refs.Add("refs/heads/newref", "refs/heads/directRef2", false));
+            }
+        }
+
+        [Fact]
+        public void CanForcefullyOverwriteExistingDirectReferenceInRefdbBackend()
+        {
+            string path = SandboxStandardTestRepo();
+            using (var repository = new Repository(path))
+            {
+                SetupBackend(repository);
+
+                repository.Refs.Add("refs/heads/newref", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false);
+                repository.Refs.Add("refs/heads/newref", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), true);
+            }
+        }
+
+        [Fact]
+        public void CanForcefullyOverwriteExistingSymbolicReferenceInRefdbBackend()
+        {
+            string path = SandboxStandardTestRepo();
+            using (var repository = new Repository(path))
+            {
+                SetupBackend(repository);
+
+                repository.Refs.Add("refs/heads/directRef", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false);
+                repository.Refs.Add("refs/heads/directRef2", new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"), false);
+                repository.Refs.Add("refs/heads/newref", "refs/heads/directRef", false);
+
+                repository.Refs.Add("refs/heads/newref", "refs/heads/directRef2", true);
+
+                var symRef = repository.Refs["refs/heads/newref"];
+                Assert.Equal("refs/heads/directRef2", symRef.TargetIdentifier);
             }
         }
 
@@ -131,13 +179,127 @@ namespace LibGit2Sharp.Tests
                 backend.References["refs/heads/testref"] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
                 backend.References["refs/heads/othersymbolic"] = new MockRefdbReference("refs/heads/testref");
 
-                Assert.True(repository.Refs.FromGlob("refs/heads/*").Select(r => r.CanonicalName).SequenceEqual(new List<string>() { "refs/heads/othersymbolic", "refs/heads/testref" }));
-                Assert.True(repository.Refs.FromGlob("refs/heads/?estref").Select(r => r.CanonicalName).SequenceEqual(new List<string>() { "refs/heads/testref" }));
+                Assert.Equal(repository.Refs.FromGlob("refs/heads/*").Select(r => r.CanonicalName), new string[] { "refs/heads/othersymbolic", "refs/heads/testref" });
+                Assert.Equal(repository.Refs.FromGlob("refs/heads/?estref").Select(r => r.CanonicalName), new string[] { "refs/heads/testref" });
             }
         }
 
-        #region MockRefdbBackend
+        [Fact]
+        public void CanRenameFromRefDbBackend()
+        {
+            var scd = new SelfCleaningDirectory(this);
+            var path = Repository.Init(scd.RootedDirectoryPath);
 
+            string originalRefName = "refs/heads/testref";
+            string renamedRefName = "refs/heads/testref2";
+
+            using (Repository repository = new Repository(path))
+            {
+                MockRefdbBackend backend = SetupBackend(repository);
+
+                backend.References["HEAD"] = new MockRefdbReference("refs/heads/testref");
+                backend.References[originalRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+
+                Reference myRef = repository.Refs[originalRefName];
+                Reference renamedRef = repository.Refs.Rename(myRef, renamedRefName);
+
+                // original ref name should not be found
+                Assert.Null(repository.Refs[originalRefName]);
+                Assert.NotNull(repository.Refs[renamedRefName]);
+            }
+        }
+
+        [Fact]
+        public void CannotRenameOverExistingRef()
+        {
+            var scd = new SelfCleaningDirectory(this);
+            var path = Repository.Init(scd.RootedDirectoryPath);
+
+            string originalRefName = "refs/heads/testref";
+            string renamedRefName = "refs/heads/testref2";
+
+            using (Repository repository = new Repository(path))
+            {
+                MockRefdbBackend backend = SetupBackend(repository);
+
+                backend.References["HEAD"] = new MockRefdbReference("refs/heads/testref");
+                backend.References[originalRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+                backend.References[renamedRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+
+                Reference myRef = repository.Refs[originalRefName];
+                Assert.Throws<NameConflictException>(() =>
+                    repository.Refs.Rename(myRef, renamedRefName));
+
+                // original ref name should  be found
+                Assert.NotNull(repository.Refs[originalRefName]);
+            }
+        }
+
+        [Fact]
+        public void CanForcefullyRenameOverExistingRef()
+        {
+            // TODO: test with a different target ref
+
+            var scd = new SelfCleaningDirectory(this);
+            var path = Repository.Init(scd.RootedDirectoryPath);
+
+            string originalRefName = "refs/heads/testref";
+            string renamedRefName = "refs/heads/testref2";
+
+            using (Repository repository = new Repository(path))
+            {
+                MockRefdbBackend backend = SetupBackend(repository);
+
+                backend.References["HEAD"] = new MockRefdbReference("refs/heads/testref");
+                backend.References[originalRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+                backend.References[renamedRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+
+                Reference myRef = repository.Refs[originalRefName];
+                Reference renamedRef = repository.Refs.Rename(myRef, renamedRefName, true);
+
+                // original ref name should not be found
+                Assert.Null(repository.Refs[originalRefName]);
+                Assert.NotNull(repository.Refs[renamedRefName]);
+            }
+        }
+
+        [Fact]
+        public void RenamingNonexistentRefThrows()
+        {
+            var scd = new SelfCleaningDirectory(this);
+            var path = Repository.Init(scd.RootedDirectoryPath);
+
+            string originalRefName = "refs/heads/testref";
+            string renamedRefName = "refs/heads/testref2";
+
+            using (Repository repository = new Repository(path))
+            {
+                MockRefdbBackend backend = SetupBackend(repository);
+
+                backend.References["HEAD"] = new MockRefdbReference("refs/heads/testref");
+                backend.References[originalRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+                backend.References[renamedRefName] = new MockRefdbReference(new ObjectId("be3563ae3f795b2b4353bcce3a527ad0a4f7f644"));
+
+                Reference myRef = repository.Refs[originalRefName];
+
+                repository.Refs.Remove(myRef);
+
+                Assert.Throws<NotFoundException>(() =>
+                    repository.Refs.Rename(myRef, renamedRefName));
+            }
+        }
+
+        [Fact]
+        public void CanCompressFromRefDbBackend()
+        {
+        }
+
+        [Fact]
+        public void CanLockAndUnlockFromRefDbBackend()
+        {
+        }
+
+        #region MockRefdbBackend
 
         /// <summary>
         ///  Kind type of a <see cref="MockRefdbReference"/>
@@ -278,16 +440,51 @@ namespace LibGit2Sharp.Tests
                 return true;
             }
 
-            public override void WriteDirectReference(string referenceCanonicalName, ObjectId target)
+            public override void WriteDirectReference(string referenceCanonicalName, ObjectId target, bool force)
             {
                 var storage = new MockRefdbReference(target);
-                references.Add(referenceCanonicalName, storage);
+                if (references.ContainsKey(referenceCanonicalName) && !force)
+                {
+                    throw new NameConflictException("A reference with this name already exists.");
+                }
+
+                references[referenceCanonicalName] = storage;
             }
 
-            public override void WriteSymbolicReference(string referenceCanonicalName, string targetCanonicalName)
+            public override void RenameReference(string referenceName, string newReferenceName, bool force,
+                out bool isSymbolic, out ObjectId oid, out string symbolic)
+            {
+                if (references.ContainsKey(referenceName))
+                {
+
+                    if (references.ContainsKey(newReferenceName) && !force)
+                    {
+                        throw new NameConflictException("error");
+                    }
+
+                    var refToRename = references[referenceName];
+                    references[newReferenceName] = refToRename;
+                    references.Remove(referenceName);
+
+                    isSymbolic = refToRename.Type == ReferenceType.Symbolic;
+                    oid = refToRename.Oid;
+                    symbolic = refToRename.Symbolic;
+                }
+                else
+                {
+                    throw new Exception("error");
+                }
+            }
+
+            public override void WriteSymbolicReference(string referenceCanonicalName, string targetCanonicalName, bool force)
             {
                 var storage = new MockRefdbReference(targetCanonicalName);
-                references.Add(referenceCanonicalName, storage);
+                if (references.ContainsKey(referenceCanonicalName) && !force)
+                {
+                    throw new NameConflictException("A reference with this name already exists.");
+                }
+
+                references[referenceCanonicalName] = storage;
             }
 
             public override void Delete(string referenceCanonicalName)
@@ -307,7 +504,7 @@ namespace LibGit2Sharp.Tests
 
             public override RefdbIterator GenerateRefIterator(string glob)
             {
-                return new MockRefDbIterator(References);
+                return new MockRefDbIterator(References, glob);
             }
 
             public override bool HasReflog(string refName)
@@ -350,15 +547,27 @@ namespace LibGit2Sharp.Tests
             IDictionary<string, MockRefdbReference> references;
             IEnumerator<KeyValuePair<string, MockRefdbReference>> nextIterator;
 
-            public MockRefDbIterator(IDictionary<string, MockRefdbReference> references)
+            public MockRefDbIterator(IDictionary<string, MockRefdbReference> allRefs, string glob)
             {
-                this.references = references;
+                if (!string.IsNullOrEmpty(glob))
+                {
+                    Regex globRegex = new Regex("^" +
+                        Regex.Escape(glob).Replace(@"\*", ".*").Replace(@"\?", ".") +
+                        "$");
+
+                    references = allRefs.Where(kvp => globRegex.IsMatch(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                }
+                else
+                {
+                    references = new Dictionary<string, MockRefdbReference>(allRefs);
+                }
+
                 nextIterator = references.GetEnumerator();
             }
 
             public override bool Next(out string referenceName, out bool isSymbolic, out ObjectId oid, out string symbolic)
             {
-                if(!nextIterator.MoveNext())
+                if (!nextIterator.MoveNext())
                 {
                     referenceName = null;
                     isSymbolic = false;

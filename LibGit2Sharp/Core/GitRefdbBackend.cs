@@ -67,9 +67,9 @@ namespace LibGit2Sharp.Core
             IntPtr reference, // const git_reference *
             [MarshalAs(UnmanagedType.Bool)] bool force,
             IntPtr who, // const git_signature *
-            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string message, // const char *
-            ref GitOid old, // const git_oid *
-            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalCookie = UniqueId.UniqueIdentifier, MarshalTypeRef = typeof(LaxUtf8NoCleanupMarshaler))] string old_target // const char *
+            IntPtr messagePtr, // const char *
+            IntPtr oid, // const git_oid *
+            IntPtr old_target // const char *
             );
 
         public delegate int rename_callback(
