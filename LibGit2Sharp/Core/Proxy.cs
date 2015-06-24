@@ -3093,6 +3093,75 @@ namespace LibGit2Sharp.Core
 
         #endregion
 
+        #region git_transaction_
+
+        public static TransactionSafeHandle git_transaction_new(RepositorySafeHandle repo)
+        {
+            TransactionSafeHandle tx;
+            int res = NativeMethods.git_transaction_new(out tx, repo);
+            Ensure.ZeroResult(res);
+            return tx;
+        }
+
+        public static void git_transaction_lock_ref(TransactionSafeHandle tx, string refName)
+        {
+            int res = NativeMethods.git_transaction_lock_ref(tx, refName);
+            Ensure.ZeroResult(res);
+        }
+
+        public static void git_transaction_set_target(TransactionSafeHandle tx, string refName, GitOid oid, Signature sig, string msg)
+        {
+            using (SignatureSafeHandle sigHandle = sig.BuildHandle())
+            {
+                int res = NativeMethods.git_transaction_set_target(tx, refName, ref oid, sigHandle, msg);
+                Ensure.ZeroResult(res);
+            }
+        }
+
+        public static void git_transaction_set_symbolic_target(
+            TransactionSafeHandle tx,
+            string refName,
+            string target,
+            Signature sig,
+            string msg)
+        {
+            using (SignatureSafeHandle sigHandle = sig.BuildHandle())
+            {
+                int res = NativeMethods.git_transaction_set_symbolic_target(
+                    tx,
+                    refName,
+                    target,
+                    sigHandle,
+                    msg);
+                Ensure.ZeroResult(res);
+            }
+        }
+
+        public static void git_transaction_set_reflog(TransactionSafeHandle tx, string refName, IntPtr reflog)
+        {
+            int res = NativeMethods.git_transaction_set_reflog(tx, refName, reflog);
+            Ensure.ZeroResult(res);
+        }
+
+        public static void git_transaction_remove(TransactionSafeHandle tx, string refName)
+        {
+            int res = NativeMethods.git_transaction_remove(tx, refName);
+            Ensure.ZeroResult(res);
+        }
+
+        public static void git_transaction_commit(TransactionSafeHandle tx)
+        {
+            int res = NativeMethods.git_transaction_commit(tx);
+            Ensure.ZeroResult(res);
+        }
+
+        public static void git_transaction_free(IntPtr tx)
+        {
+            NativeMethods.git_transaction_free(tx);
+        }
+
+        #endregion
+
         #region git_transport_
 
         public static void git_transport_register(String prefix, IntPtr transport_cb, IntPtr param)
