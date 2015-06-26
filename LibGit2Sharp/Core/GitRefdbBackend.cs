@@ -39,14 +39,16 @@ namespace LibGit2Sharp.Core
 
         /// Queries the refdb backend to determine if the given ref_name
         /// A refdb implementation must provide this function.
-        public delegate int exists_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode exists_callback(
             [MarshalAs(UnmanagedType.Bool)] out bool exists,
             IntPtr backend,
             IntPtr refNamePtr);
 
         /// Queries the refdb backend for a given reference.  A refdb
         /// implementation must provide this function.
-        public delegate int lookup_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode lookup_callback(
             out IntPtr git_reference,
             IntPtr backend,
             IntPtr refNamePtr);
@@ -55,14 +57,16 @@ namespace LibGit2Sharp.Core
         /// Allocate an iterator object for the backend.
         /// A refdb implementation must provide this function.
         /// </summary>
-        public delegate int iterator_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode iterator_callback(
             out IntPtr iter,
             IntPtr backend,
             IntPtr globPtr);
 
         /// Writes the given reference to the refdb.  A refdb implementation
         /// must provide this function.
-        public delegate int write_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode write_callback(
             IntPtr backend,
             IntPtr reference, // const git_reference *
             [MarshalAs(UnmanagedType.Bool)] bool force,
@@ -72,7 +76,8 @@ namespace LibGit2Sharp.Core
             IntPtr old_target // const char *
             );
 
-        public delegate int rename_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode rename_callback(
             out IntPtr reference, // git_reference **
             IntPtr backend, // git_refdb_backend *
             IntPtr old_name, // const char *
@@ -82,14 +87,16 @@ namespace LibGit2Sharp.Core
             IntPtr message // const char *
             );
 
-        public delegate int delete_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode delete_callback(
             IntPtr backend, // git_refdb_backend *
             IntPtr ref_name, // const char *
             IntPtr oldId, // const git_oid *
             IntPtr old_target // const char *
             );
 
-        public delegate int compress_callback(
+        [return: MarshalAs(UnmanagedType.I4)]
+        public delegate GitErrorCode compress_callback(
             IntPtr backend // git_refdb_backend *
             );
 

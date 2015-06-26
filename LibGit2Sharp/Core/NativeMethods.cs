@@ -144,22 +144,6 @@ namespace LibGit2Sharp.Core
         [DllImport(libgit2)]
         internal static extern Int64 git_blob_rawsize(GitObjectSafeHandle blob);
 
-        internal delegate void ref_db_free(
-            IntPtr iter);
-
-        [DllImport(libgit2)]
-        internal static extern int git_refdb_new(
-            out IntPtr git_refdb, // **out,
-            RepositorySafeHandle repo);
-
-        [DllImport(libgit2)]
-        internal static extern int git_refdb_open(
-            out IntPtr git_refdb, // **out,
-            RepositorySafeHandle repo);
-
-        [DllImport(libgit2)]
-        internal static extern int git_refdb_compress(IntPtr refDb); // * refdb)
-
         [DllImport(libgit2)]
         internal static extern void git_refdb_free(IntPtr refDb);
 

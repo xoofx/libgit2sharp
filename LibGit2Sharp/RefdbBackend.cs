@@ -210,6 +210,19 @@ namespace LibGit2Sharp
             public static readonly GitRefDbBackend.ref_lock_callback RefLockCallback = LockRef;
             public static readonly GitRefDbBackend.ref_unlock_callback RefUnlockCallback = UnlockRef;
 
+            private static RefdbBackend MarshalRefdbBackend(IntPtr backend)
+            {
+                var intPtr = Marshal.ReadIntPtr(backend, GitRefDbBackend.GCHandleOffset);
+                var handle = GCHandle.FromIntPtr(intPtr).Target as RefdbBackend;
+
+                if (handle == null)
+                {
+                    throw new Exception("Cannot retrieve the RefdbBackend handle.");
+                }
+
+                return handle;
+            }
+
             private static bool TryMarshalRefdbBackend(out RefdbBackend refdbBackend, IntPtr backend)
             {
                 refdbBackend = null;
@@ -227,111 +240,104 @@ namespace LibGit2Sharp
                 return true;
             }
 
-            private static int Exists(
+            private static int ErrorMarshalingRefDbBacked()
+            {
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Cannot retrieve the RefdbBackend handle.");
+                return (int)GitErrorCode.Error;
+            }
+
+            private static GitErrorCode Exists(
                 out bool exists,
                 IntPtr backend,
                 IntPtr refNamePtr)
             {
-                exists = false;
-
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    return (int)GitErrorCode.Error;
-                }
-
-                string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
+                GitErrorCode res;
 
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+                    string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
+
                     exists = refdbBackend.Exists(refName);
+
+                    res = GitErrorCode.Ok;
                 }
                 catch (Exception ex)
                 {
+                    exists = false;
+
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
 
-                return (int)GitErrorCode.Ok;
+                return res;
             }
 
-            private static int Lookup(
+            private static GitErrorCode Lookup(
                 out IntPtr referencePtr,
                 IntPtr backend,
                 IntPtr refNamePtr)
             {
                 referencePtr = IntPtr.Zero;
-
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    return (int)GitErrorCode.Error;
-                }
-
-                string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
-
+                GitErrorCode res;
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+
+                    string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
+
                     bool isSymbolic;
                     ObjectId oid;
                     string symbolic;
 
-                    if (!refdbBackend.Lookup(refName, out isSymbolic, out oid, out symbolic))
+                    // REVIEW: should .Lookup method throw or return false on not found...
+                    if (refdbBackend.Lookup(refName, out isSymbolic, out oid, out symbolic))
                     {
-                        return (int)GitErrorCode.NotFound;
+                        referencePtr = AllocNativeRef(refName, isSymbolic, oid, symbolic);
+                        res = GitErrorCode.Ok;
                     }
-
-                    referencePtr = AllocNativeRef(refName, isSymbolic, oid, symbolic);
+                    else
+                    {
+                        res = GitErrorCode.NotFound;
+                    }
                 }
                 catch (Exception ex)
                 {
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
 
-                return referencePtr != IntPtr.Zero ?
-                    (int)GitErrorCode.Ok : (int)GitErrorCode.Error;
+                return res;
             }
 
-            private static IntPtr AllocNativeRef(string refName, bool isSymbolic, ObjectId oid, string symbolic)
-            {
-                return isSymbolic ?
-                    Proxy.git_reference__alloc_symbolic(refName, symbolic) :
-                    Proxy.git_reference__alloc(refName, oid);
-            }
-
-            private static int GetIterator(
+            private static GitErrorCode GetIterator(
                 out IntPtr iterPtr,
                 IntPtr backend,
                 IntPtr globPtr)
             {
                 iterPtr = IntPtr.Zero;
-
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    return (int)GitErrorCode.Error;
-                }
-
-                string glob = LaxUtf8Marshaler.FromNative(globPtr);
+                GitErrorCode res;
 
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+                    string glob = LaxUtf8Marshaler.FromNative(globPtr);
+
                     RefdbIterator refIter = refdbBackend.GenerateRefIterator(glob);
                     iterPtr = refIter.GitRefdbIteratorPtr;
+
+                    res = GitErrorCode.Ok;
                 }
                 catch (Exception ex)
                 {
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
 
-                return iterPtr != IntPtr.Zero ?
-                    (int)GitErrorCode.Ok : (int)GitErrorCode.Error;
+                return res;
             }
 
-
-            private static int Write(
+            private static GitErrorCode Write(
                 IntPtr backend,
                 IntPtr referencePtr,
                 bool force,
@@ -340,36 +346,26 @@ namespace LibGit2Sharp
                 IntPtr oidPtr,
                 IntPtr oldTargetPtr)
             {
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    return (int)GitErrorCode.Error;
-                }
-
-                var referenceHandle = new NotOwnedReferenceSafeHandle(referencePtr);
-                string name = Proxy.git_reference_name(referenceHandle);
-                GitReferenceType type = Proxy.git_reference_type(referenceHandle);
-
-                if (oidPtr != IntPtr.Zero)
-                {
-                    GitOid oid = new GitOid();
-                    Marshal.Copy(oidPtr, oid.Id, 0, 20);
-                }
-
-                string message = null;
-                if (messagePtr != IntPtr.Zero)
-                {
-                    message = LaxUtf8Marshaler.FromNative(messagePtr);
-                }
-
-                string oldTarget = null;
-                if (oldTargetPtr != IntPtr.Zero)
-                {
-                    oldTarget = LaxUtf8Marshaler.FromNative(oldTargetPtr);
-                }
+                GitErrorCode res;
 
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+
+                    var referenceHandle = new NotOwnedReferenceSafeHandle(referencePtr);
+                    string name = Proxy.git_reference_name(referenceHandle);
+                    GitReferenceType type = Proxy.git_reference_type(referenceHandle);
+
+                    // TODO: Marshal this correctly
+                    if (oidPtr != IntPtr.Zero)
+                    {
+                        GitOid oid = new GitOid();
+                        Marshal.Copy(oidPtr, oid.Id, 0, 20);
+                    }
+
+                    string message = LaxUtf8Marshaler.FromNative(messagePtr);
+                    string oldTarget = LaxUtf8Marshaler.FromNative(oldTargetPtr);
+
                     switch (type)
                     {
                         case GitReferenceType.Oid:
@@ -387,22 +383,24 @@ namespace LibGit2Sharp
                                 String.Format(CultureInfo.InvariantCulture,
                                     "Unable to build a new reference from a type '{0}'.", type));
                     }
+
+                    res = GitErrorCode.Ok;
                 }
                 catch (NameConflictException ex)
                 {
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Exists;
+                    res = GitErrorCode.Exists;
                 }
                 catch (Exception ex)
                 {
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
 
-                return (int)GitErrorCode.Ok;
+                return res;
             }
 
-            private static int Rename(
+            private static GitErrorCode Rename(
                 out IntPtr reference,
                 IntPtr backend,
                 IntPtr oldNamePtr,
@@ -411,15 +409,12 @@ namespace LibGit2Sharp
                 IntPtr who,
                 IntPtr messagePtr)
             {
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    reference = IntPtr.Zero;
-                    return (int)GitErrorCode.Error;
-                }
+                GitErrorCode res;
 
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+
                     string oldName = LaxUtf8Marshaler.FromNative(oldNamePtr);
                     string newName = LaxUtf8Marshaler.FromNative(newNamePtr);
 
@@ -432,67 +427,68 @@ namespace LibGit2Sharp
                                                  out isSymbolic, out oid, out symbolic);
 
                     reference = AllocNativeRef(newName, isSymbolic, oid, symbolic);
-                    return (int)GitErrorCode.Ok;
+                    res = GitErrorCode.Ok;
                 }
                 catch (NameConflictException ex)
                 {
                     reference = IntPtr.Zero;
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Exists;
+                    res = GitErrorCode.Exists;
                 }
                 catch (Exception ex)
                 {
                     reference = IntPtr.Zero;
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
+
+                return res;
             }
 
-            private static int Delete(
+            private static GitErrorCode Delete(
                 IntPtr backend,
                 IntPtr refNamePtr,
                 IntPtr oldId,
                 IntPtr oldTargetNamePtr)
             {
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    return (int)GitErrorCode.Error;
-                }
+                GitErrorCode res;
 
-                string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+                    string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
+
                     refdbBackend.Delete(refName);
+
+                    res = GitErrorCode.Ok;
                 }
                 catch (Exception ex)
                 {
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
 
-                return (int)GitErrorCode.Ok;
+                return res;
             }
 
-            private static int Compress(IntPtr backend)
+            private static GitErrorCode Compress(IntPtr backend)
             {
-                RefdbBackend refdbBackend;
-                if (!TryMarshalRefdbBackend(out refdbBackend, backend))
-                {
-                    return (int)GitErrorCode.Error;
-                }
+                GitErrorCode res;
 
                 try
                 {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
                     refdbBackend.Compress();
+
+                    res = GitErrorCode.Ok;
                 }
                 catch (Exception ex)
                 {
                     Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
-                    return (int)GitErrorCode.Error;
+                    res = GitErrorCode.Error;
                 }
 
-                return (int)GitErrorCode.Ok;
+                return res;
             }
 
             private static void Free(IntPtr backend)
@@ -572,6 +568,13 @@ namespace LibGit2Sharp
                 )
             {
                 return 0;
+            }
+
+            private static IntPtr AllocNativeRef(string refName, bool isSymbolic, ObjectId oid, string symbolic)
+            {
+                return isSymbolic ?
+                    Proxy.git_reference__alloc_symbolic(refName, symbolic) :
+                    Proxy.git_reference__alloc(refName, oid);
             }
         }
 
