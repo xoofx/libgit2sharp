@@ -159,6 +159,7 @@
     <Compile Include="Core\GitBuf.cs" />
     <Compile Include="FilteringOptions.cs" />
     <Compile Include="MergeFetchHeadNotFoundException.cs" />
+    <Compile Include="RefTransaction.cs" />
     <Compile Include="RepositoryOperationContext.cs" />
     <Compile Include="ResetMode.cs" />
     <Compile Include="RefSpecDirection.cs" />

@@ -2339,6 +2339,17 @@ namespace LibGit2Sharp.Core
             return RepositoryStateChecker(repo, NativeMethods.git_repository_head_unborn);
         }
 
+        public static Identity git_repository_ident(RepositorySafeHandle repo)
+        {
+            string name;
+            string email;
+
+            int res = NativeMethods.git_repository_ident(out name, out email, repo);
+            Ensure.ZeroResult(res);
+
+            return new Identity(name, email);
+        }
+
         public static IndexSafeHandle git_repository_index(RepositorySafeHandle repo)
         {
             IndexSafeHandle handle;
@@ -3109,9 +3120,9 @@ namespace LibGit2Sharp.Core
             Ensure.ZeroResult(res);
         }
 
-        public static void git_transaction_set_target(TransactionSafeHandle tx, string refName, GitOid oid, Signature sig, string msg)
+        public static void git_transaction_set_target(TransactionSafeHandle tx, string refName, GitOid oid, Identity ident, string msg)
         {
-            using (SignatureSafeHandle sigHandle = sig.BuildHandle())
+            using (SignatureSafeHandle sigHandle = ident. .BuildHandle())
             {
                 int res = NativeMethods.git_transaction_set_target(tx, refName, ref oid, sigHandle, msg);
                 Ensure.ZeroResult(res);
