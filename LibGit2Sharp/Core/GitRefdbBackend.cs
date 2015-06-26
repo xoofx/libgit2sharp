@@ -100,12 +100,12 @@ namespace LibGit2Sharp.Core
             IntPtr backend // git_refdb_backend *
             );
 
-        public delegate int has_log_callback(
+        public delegate GitErrorCode has_log_callback(
             IntPtr backend, // git_refdb_backend *
             IntPtr refNamePtr // const char *
             );
 
-        public delegate int ensure_log_callback(
+        public delegate GitErrorCode ensure_log_callback(
             IntPtr backend, // git_refdb_backend *
             IntPtr refNamePtr // const char *
             );
@@ -114,34 +114,35 @@ namespace LibGit2Sharp.Core
             IntPtr backend // git_refdb_backend *
             );
 
-        public delegate int reflog_read_callback(
+        public delegate GitErrorCode reflog_read_callback(
             out IntPtr git_reflog, // git_reflog **
             IntPtr backend, // git_refdb_backend *
             IntPtr refNamePtr // const char *
             );
 
-        public delegate int reflog_write_callback(
+        public delegate GitErrorCode reflog_write_callback(
             IntPtr backend, // git_refdb_backend *
             IntPtr git_reflog // git_reflog *
             );
 
-        public delegate int reflog_rename_callback(
+        public delegate GitErrorCode reflog_rename_callback(
             IntPtr backend, // git_refdb_backend
             IntPtr oldNamePtr, // const char *
             IntPtr newNamePtr // const char *
             );
 
-        public delegate int reflog_delete_callback(
+        public delegate GitErrorCode reflog_delete_callback(
             IntPtr backend, // git_refdb_backend
             IntPtr namePtr // const char *
             );
 
-        public delegate int ref_lock_callback(
+        public delegate GitErrorCode ref_lock_callback(
+            IntPtr payload, // void **
             IntPtr backend, // git_refdb_backend
             IntPtr namePtr // const char *
             );
 
-        public delegate int ref_unlock_callback(
+        public delegate GitErrorCode ref_unlock_callback(
             IntPtr backend, // git_refdb_backend
             IntPtr payload,
             [MarshalAs(UnmanagedType.Bool)] bool force,

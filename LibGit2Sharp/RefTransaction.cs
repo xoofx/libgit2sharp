@@ -7,6 +7,9 @@ using LibGit2Sharp.Core.Handles;
 
 namespace LibGit2Sharp
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public class RefTransaction : IDisposable
     {
         TransactionSafeHandle transactionHandle;
@@ -18,17 +21,32 @@ namespace LibGit2Sharp
             transactionHandle = Proxy.git_transaction_new(repository.Handle);
         }
 
-        public void LockReference()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="reference"></param>
+        public void LockReference(Reference reference)
         {
-
+            Proxy.git_transaction_lock_ref(this.transactionHandle, reference.CanonicalName);
         }
 
-        public void RemoteRef()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="reference"></param>
+        public void RemoveReference(Reference reference)
         {
-
+            Proxy.git_transaction_remove(this.transactionHandle, reference.CanonicalName);
         }
 
-        public virtual Reference UpdateTarget(Reference directRef, ObjectId targetId, string logMessage)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="directRef"></param>
+        /// <param name="targetId"></param>
+        /// <param name="logMessage"></param>
+        /// <returns></returns>
+        public virtual void UpdateTarget(Reference directRef, ObjectId targetId, string logMessage)
         {
             Ensure.ArgumentNotNull(directRef, "directRef");
             Ensure.ArgumentNotNull(targetId, "targetId");
@@ -38,14 +56,24 @@ namespace LibGit2Sharp
             Proxy.git_transaction_set_target(this.transactionHandle, directRef.CanonicalName, targetId.Oid, ident, logMessage);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="symbolicRef"></param>
+        /// <param name="targetRef"></param>
+        /// <param name="logMessage"></param>
         public void UpdateTarget(Reference symbolicRef, Reference targetRef, string logMessage)
         {
-
+            Identity ident = Proxy.git_repository_ident(repo);
+            Proxy.git_transaction_set_symbolic_target(this.transactionHandle, symbolicRef.CanonicalName, targetRef.CanonicalName, ident, logMessage);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public void Commit()
         {
-
+            Proxy.git_transaction_commit(this.transactionHandle);
         }
 
         #region IDisposable Support
@@ -75,6 +103,10 @@ namespace LibGit2Sharp
         // }
 
         // This code added to correctly implement the disposable pattern.
+
+        /// <summary>
+        /// 
+        /// </summary>
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in Dispose(bool disposing) above.

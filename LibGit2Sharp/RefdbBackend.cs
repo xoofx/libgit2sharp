@@ -502,62 +502,85 @@ namespace LibGit2Sharp
                 refdbBackend.Free();
             }
 
-            private static int ReflogRead(out IntPtr reflogPtr, IntPtr backendPtr, IntPtr refNamePtr)
+            private static GitErrorCode ReflogRead(out IntPtr reflogPtr, IntPtr backendPtr, IntPtr refNamePtr)
             {
                 reflogPtr = IntPtr.Zero;
-                return 0;
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Not implemented");
+                return GitErrorCode.Error;
             }
 
-            public static int ReflogWrite(
+            public static GitErrorCode ReflogWrite(
                 IntPtr backend, // git_refdb_backend *
                 IntPtr git_reflog // git_reflog *
                 )
             {
-                return 0;
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Not implemented");
+                return GitErrorCode.Error;
             }
 
-            public static int ReflogRename(
+            public static GitErrorCode ReflogRename(
                 IntPtr backend, // git_refdb_backend
                 IntPtr oldNamePtr, // const char *
                 IntPtr newNamePtr // const char *
                 )
             {
-                return 0;
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Not implemented");
+                return GitErrorCode.Error;
             }
 
-            public static int ReflogDelete(
+            public static GitErrorCode ReflogDelete(
                 IntPtr backend, // git_refdb_backend
                 IntPtr namePtr // const char *
                 )
             {
-                return 0;
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Not implemented");
+                return GitErrorCode.Error;
             }
 
-            public static int HasLog(
+            public static GitErrorCode HasLog(
                 IntPtr backend, // git_refdb_backend *
                 IntPtr refNamePtr // const char *
                 )
             {
-                return 0;
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Not implemented");
+                return GitErrorCode.Error;
             }
 
-            public static int EnsureLog(
+            public static GitErrorCode EnsureLog(
                 IntPtr backend, // git_refdb_backend *
                 IntPtr refNamePtr // const char *
                 )
             {
-                return 0;
+                Proxy.giterr_set_str(GitErrorCategory.Reference, "Not implemented");
+                return GitErrorCode.Error;
             }
 
-            public static int LockRef(
+            public static GitErrorCode LockRef(
+                IntPtr payload, // void **
                 IntPtr backend, // git_refdb_backend
                 IntPtr namePtr // const char *
                 )
             {
-                return 0;
+                GitErrorCode res;
+
+                try
+                {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+                    string refName = LaxUtf8Marshaler.FromNative(namePtr);
+                    refdbBackend.LockReference(refName);
+
+                    res = GitErrorCode.Ok;
+                }
+                catch (Exception ex)
+                {
+                    Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
+                    res = GitErrorCode.Error;
+                }
+
+                return res;
             }
 
-            public static int UnlockRef(
+            public static GitErrorCode UnlockRef(
                 IntPtr backend, // git_refdb_backend
                 IntPtr payload,
                 [MarshalAs(UnmanagedType.Bool)] bool force,
@@ -567,7 +590,23 @@ namespace LibGit2Sharp
                 IntPtr messagePtr // const char *
                 )
             {
-                return 0;
+                GitErrorCode res;
+
+                try
+                {
+                    RefdbBackend refdbBackend = MarshalRefdbBackend(backend);
+                    string refName = LaxUtf8Marshaler.FromNative(refNamePtr);
+                    refdbBackend.UnlockReference(refName);
+
+                    res = GitErrorCode.Ok;
+                }
+                catch (Exception ex)
+                {
+                    Proxy.giterr_set_str(GitErrorCategory.Reference, ex);
+                    res = GitErrorCode.Error;
+                }
+
+                return res;
             }
 
             private static IntPtr AllocNativeRef(string refName, bool isSymbolic, ObjectId oid, string symbolic)

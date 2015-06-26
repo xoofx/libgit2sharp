@@ -2347,6 +2347,12 @@ namespace LibGit2Sharp.Core
             int res = NativeMethods.git_repository_ident(out name, out email, repo);
             Ensure.ZeroResult(res);
 
+            if (string.IsNullOrEmpty(name) ||
+                string.IsNullOrEmpty(email))
+            {
+                return null;
+            }
+
             return new Identity(name, email);
         }
 
@@ -3122,7 +3128,7 @@ namespace LibGit2Sharp.Core
 
         public static void git_transaction_set_target(TransactionSafeHandle tx, string refName, GitOid oid, Identity ident, string msg)
         {
-            using (SignatureSafeHandle sigHandle = ident. .BuildHandle())
+            using (SignatureSafeHandle sigHandle = ident.SafeBuildNowSignatureHandle())
             {
                 int res = NativeMethods.git_transaction_set_target(tx, refName, ref oid, sigHandle, msg);
                 Ensure.ZeroResult(res);
@@ -3133,10 +3139,10 @@ namespace LibGit2Sharp.Core
             TransactionSafeHandle tx,
             string refName,
             string target,
-            Signature sig,
+            Identity ident,
             string msg)
         {
-            using (SignatureSafeHandle sigHandle = sig.BuildHandle())
+            using (SignatureSafeHandle sigHandle = ident.SafeBuildNowSignatureHandle())
             {
                 int res = NativeMethods.git_transaction_set_symbolic_target(
                     tx,
