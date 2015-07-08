@@ -120,10 +120,13 @@
     <Compile Include="IndexReucEntry.cs" />
     <Compile Include="IndexReucEntryCollection.cs" />
     <Compile Include="IndexNameEntry.cs" />
+    <Compile Include="MergeAnalysis.cs" />
+    <Compile Include="MergeAnalysisResult.cs" />
     <Compile Include="MergeAndCheckoutOptionsBase.cs" />
     <Compile Include="MergeConflictException.cs" />
     <Compile Include="MergeOptions.cs" />
     <Compile Include="MergeOptionsBase.cs" />
+    <Compile Include="MergePreference.cs" />
     <Compile Include="MergeResult.cs" />
     <Compile Include="MergeTreeOptions.cs" />
     <Compile Include="MergeTreeResult.cs" />

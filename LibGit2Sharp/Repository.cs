@@ -1450,6 +1450,70 @@ namespace LibGit2Sharp
             return result;
         }
 
+        private MergeAnalysisResult AnalyzeMerge(GitAnnotatedCommitHandle[] annotatedCommits)
+        {
+            GitMergeAnalysis mergeAnalysis;
+            GitMergePreference mergePreference;
+
+            Proxy.git_merge_analysis(Handle, annotatedCommits, out mergeAnalysis, out mergePreference);
+            return new MergeAnalysisResult(mergeAnalysis, mergePreference);
+        }
+
+        /// <summary>
+        /// Analyze the possibilities of updating HEAD with the given commit(s).
+        /// </summary>
+        /// <param name="commits">Commits to merge into HEAD</param>
+        /// <returns>Which update methods are possible and which preference the user has specified</returns>
+        public MergeAnalysisResult AnalyzeMerge(params Commit[] commits)
+        {
+            GitAnnotatedCommitHandle[] annotatedCommitHandles = commits.Select(commit =>
+                Proxy.git_annotated_commit_lookup(Handle, commit.Id.Oid)).ToArray();
+
+            try
+            {
+                return AnalyzeMerge(annotatedCommitHandles);
+            }
+            finally
+            {
+                foreach (var handle in annotatedCommitHandles)
+                {
+                    handle.Dispose();
+                }
+            }
+
+        }
+
+        /// <summary>
+        /// Analyze the possibilities of updating HEAD with the given reference(s)
+        /// </summary>
+        /// <param name="references">References to merge into HEAD</param>
+        /// <returns>Which update methods are possible and which preference the user has specified</returns>
+        public MergeAnalysisResult AnalyzeMerge(params Reference[] references)
+        {
+            GitAnnotatedCommitHandle[] annotatedCommitHandles = references.Select(reference =>
+                {
+                    using (var refHandle = refs.RetrieveReferencePtr(reference.CanonicalName))
+                    {
+                        return Proxy.git_annotated_commit_from_ref(Handle, refHandle);
+
+                    }
+                }).ToArray();
+
+            try
+            {
+                return AnalyzeMerge(annotatedCommitHandles);
+            }
+            finally
+            {
+                foreach (var handle in annotatedCommitHandles)
+                {
+                    handle.Dispose();
+                }
+            }
+
+
+        }
+
         private FastForwardStrategy FastForwardStrategyFromMergePreference(GitMergePreference preference)
         {
             switch (preference)
