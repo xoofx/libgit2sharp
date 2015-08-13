@@ -44,6 +44,17 @@ namespace LibGit2Sharp
         }
 
         /// <summary>
+        /// Gets or sets the range spec from..to or a list of range.
+        /// </summary>
+        /// <value>The range.</value>
+        public object Range { get; set; }
+
+        internal IList<string> RangeList
+        {
+            get { return ToRangeList(Range); }
+        }
+
+        /// <summary>
         /// A pointer to a commit object or a list of pointers which will be excluded (along with ancestors) from the enumeration.
         /// <para>
         ///   Can be either a <see cref="string"/> containing the sha or reference canonical name to use,
@@ -87,6 +98,21 @@ namespace LibGit2Sharp
             }
 
             list.AddRange(((IEnumerable)obj).Cast<object>());
+            return list;
+        }
+
+        private static IList<string> ToRangeList(object obj)
+        {
+            var list = new List<string>();
+
+            if (obj is string)
+            {
+                list.Add((string)obj);
+            } 
+            else if (obj is IEnumerable)
+            {
+                list.AddRange(((IEnumerable)obj).OfType<string>());
+            }
             return list;
         }
     }
