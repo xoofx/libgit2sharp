@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using LibGit2Sharp.Core;
 
 namespace LibGit2Sharp
@@ -13,21 +14,57 @@ namespace LibGit2Sharp
     {
         private static readonly Lazy<Version> version = new Lazy<Version>(Version.Build);
         private static readonly Dictionary<Filter, FilterRegistration> registeredFilters;
+        private static readonly bool nativeLibraryPathAllowed;
 
         private static LogConfiguration logConfiguration = LogConfiguration.None;
 
         private static string nativeLibraryPath;
         private static bool nativeLibraryPathLocked;
+        private static string nativeLibraryDefaultPath;
 
         static GlobalSettings()
         {
-            if (Platform.OperatingSystem == OperatingSystemType.Windows)
+            bool netFX = Platform.IsRunningOnNetFramework();
+            bool netCore = Platform.IsRunningOnNetCore();
+
+            nativeLibraryPathAllowed = netFX || netCore;
+
+            if (netFX)
             {
-                string managedPath = new Uri(Assembly.GetExecutingAssembly().EscapedCodeBase).LocalPath;
-                nativeLibraryPath = Path.Combine(Path.GetDirectoryName(managedPath), "NativeBinaries");
+                // For .NET Framework apps the dependencies are deployed to lib/win32/{architecture} directory
+                nativeLibraryDefaultPath = Path.Combine(GetExecutingAssemblyDirectory(), "lib", "win32");
+            }
+            else
+            {
+                nativeLibraryDefaultPath = null;
             }
 
             registeredFilters = new Dictionary<Filter, FilterRegistration>();
+        }
+
+        private static string GetExecutingAssemblyDirectory()
+        {
+            // Assembly.CodeBase is not actually a correctly formatted
+            // URI.  It's merely prefixed with `file:///` and has its
+            // backslashes flipped.  This is superior to EscapedCodeBase,
+            // which does not correctly escape things, and ambiguates a
+            // space (%20) with a literal `%20` in the path.  Sigh.
+            var managedPath = Assembly.GetExecutingAssembly().CodeBase;
+            if (managedPath == null)
+            {
+                managedPath = Assembly.GetExecutingAssembly().Location;
+            }
+            else if (managedPath.StartsWith("file:///"))
+            {
+                managedPath = managedPath.Substring(8).Replace('/', '\\');
+            }
+            else if (managedPath.StartsWith("file://"))
+            {
+                managedPath = @"\\" + managedPath.Substring(7).Replace('/', '\\');
+            }
+
+            managedPath = Path.GetDirectoryName(managedPath);
+            return managedPath;
         }
 
         /// <summary>
@@ -127,35 +164,41 @@ namespace LibGit2Sharp
         }
 
         /// <summary>
-        /// Sets a hint path for searching for native binaries: when
-        /// specified, native binaries will first be searched in a
-        /// subdirectory of the given path corresponding to the architecture
-        /// (eg, "x86" or "amd64") before falling back to the default
-        /// path ("NativeBinaries\x86" or "NativeBinaries\amd64" next
-        /// to the application).
+        /// Sets a path for loading native binaries on .NET Framework or .NET Core.
+        /// When specified, native library will first be searched under the given path.
+        /// On .NET Framework a subdirectory corresponding to the architecture  ("x86" or "x64") is appended,
+        /// otherwise the native library is expected to be found in the directory as specified.
+        ///
+        /// If the library is not found it will be searched in standard search paths:
+        /// <see cref="DllImportSearchPath.AssemblyDirectory"/>,
+        /// <see cref="DllImportSearchPath.ApplicationDirectory"/> and
+        /// <see cref="DllImportSearchPath.SafeDirectories"/>.
         /// <para>
         /// This must be set before any other calls to the library,
-        /// and is not available on Unix platforms: see your dynamic
-        /// library loader's documentation for details.
+        /// and is not available on other platforms than .NET Framework and .NET Core.
+        /// </para>
+        /// <para>
+        /// If not specified on .NET Framework it defaults to lib/win32 subdirectory
+        /// of the directory where this assembly is loaded from.
         /// </para>
         /// </summary>
         public static string NativeLibraryPath
         {
             get
             {
-                if (Platform.OperatingSystem != OperatingSystemType.Windows)
+                if (!nativeLibraryPathAllowed)
                 {
-                    throw new LibGit2SharpException("Querying the native hint path is only supported on Windows platforms");
+                    throw new LibGit2SharpException("Querying the native hint path is only supported on .NET Framework and .NET Core platforms");
                 }
 
-                return nativeLibraryPath;
+                return nativeLibraryPath ?? nativeLibraryDefaultPath;
             }
 
             set
             {
-                if (Platform.OperatingSystem != OperatingSystemType.Windows)
+                if (!nativeLibraryPathAllowed)
                 {
-                    throw new LibGit2SharpException("Setting the native hint path is only supported on Windows platforms");
+                    throw new LibGit2SharpException("Setting the native hint path is only supported on .NET Framework and .NET Core platforms");
                 }
 
                 if (nativeLibraryPathLocked)
@@ -163,14 +206,22 @@ namespace LibGit2Sharp
                     throw new LibGit2SharpException("You cannot set the native library path after it has been loaded");
                 }
 
-                nativeLibraryPath = value;
+                try
+                {
+                    nativeLibraryPath = Path.GetFullPath(value);
+                }
+                catch (Exception e)
+                {
+                    throw new LibGit2SharpException(e.Message);
+                }
             }
         }
 
         internal static string GetAndLockNativeLibraryPath()
         {
             nativeLibraryPathLocked = true;
-            return nativeLibraryPath;
+            string result = nativeLibraryPath ?? nativeLibraryDefaultPath;
+            return Platform.IsRunningOnNetFramework() ? Path.Combine(result, Platform.ProcessorArchitecture) : result;
         }
 
         /// <summary>
@@ -200,7 +251,7 @@ namespace LibGit2Sharp
         /// Registers a <see cref="Filter"/> to be invoked when <see cref="Filter.Name"/> matches .gitattributes 'filter=name'
         /// </summary>
         /// <param name="filter">The filter to be invoked at run time.</param>
-        /// <param name="priority">The priroty of the filter to invoked. 
+        /// <param name="priority">The priroty of the filter to invoked.
         /// A value of 0 (<see cref="FilterRegistration.FilterPriorityMin"/>) will be run first on checkout and last on checkin.
         /// A value of 200 (<see cref="FilterRegistration.FilterPriorityMax"/>) will be run last on checkout and first on checkin.
         /// </param>
@@ -222,7 +273,7 @@ namespace LibGit2Sharp
 
             lock (registeredFilters)
             {
-                // if the filter has already been registered 
+                // if the filter has already been registered
                 if (registeredFilters.ContainsKey(filter))
                 {
                     throw new EntryExistsException("The filter has already been registered.", GitErrorCode.Exists, GitErrorCategory.Filter);
@@ -251,7 +302,7 @@ namespace LibGit2Sharp
 
                 // do nothing if the filter isn't registered
                 if (registeredFilters.ContainsKey(filter))
-                {                    
+                {
                     // remove the register from the global tracking list
                     registeredFilters.Remove(filter);
                     // clean up native allocations
@@ -271,6 +322,65 @@ namespace LibGit2Sharp
                 // unregister the filter
                 DeregisterFilter(registration);
             }
+        }
+
+        /// <summary>
+        /// Get the paths under which libgit2 searches for the configuration file of a given level.
+        /// </summary>
+        /// <param name="level">The level (global/system/XDG) of the config.</param>
+        /// <returns>The paths that are searched</returns>
+        public static IEnumerable<string> GetConfigSearchPaths(ConfigurationLevel level)
+        {
+            return Proxy.git_libgit2_opts_get_search_path(level).Split(Path.PathSeparator);
+        }
+
+        /// <summary>
+        /// Set the paths under which libgit2 searches for the configuration file of a given level.
+        ///
+        /// <seealso cref="RepositoryOptions"/>.
+        /// </summary>
+        /// <param name="level">The level (global/system/XDG) of the config.</param>
+        /// <param name="paths">
+        ///     The new search paths to set.
+        ///     Pass null to reset to the default.
+        ///     The special string "$PATH" will be substituted with the current search path.
+        /// </param>
+        public static void SetConfigSearchPaths(ConfigurationLevel level, params string[] paths)
+        {
+            var pathString = (paths == null) ? null : string.Join(Path.PathSeparator.ToString(), paths);
+            Proxy.git_libgit2_opts_set_search_path(level, pathString);
+        }
+
+        public static void SetStrictHashVerification(bool enabled)
+        {
+            Proxy.git_libgit2_opts_enable_strict_hash_verification(enabled);
+        }
+
+        /// <summary>
+        /// Enable or disable the libgit2 cache
+        /// </summary>
+        /// <param name="enabled">true to enable the cache, false otherwise</param>
+        public static void SetEnableCaching(bool enabled)
+        {
+            Proxy.git_libgit2_opts_set_enable_caching(enabled);
+        }
+
+        /// <summary>
+        /// Enable or disable the ofs_delta capability
+        /// </summary>
+        /// <param name="enabled">true to enable the ofs_delta capability, false otherwise</param>
+        public static void SetEnableOfsDelta(bool enabled)
+        {
+            Proxy.git_libgit2_opts_set_enable_ofsdelta(enabled);
+        }
+
+        /// <summary>
+        /// Enable or disable the libgit2 strict_object_creation capability
+        /// </summary>
+        /// <param name="enabled">true to enable the strict_object_creation capability, false otherwise</param>
+        public static void SetEnableStrictObjectCreation(bool enabled)
+        {
+            Proxy.git_libgit2_opts_set_enable_strictobjectcreation(enabled);
         }
     }
 }

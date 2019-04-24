@@ -1,11 +1,12 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace LibGit2Sharp
 {
     /// <summary>
-    /// Criterias used to filter out and order the commits of the repository when querying its history.
+    /// Criteria used to filter out and order the commits of the repository when querying its history.
     /// </summary>
     public sealed class CommitFilter
     {
@@ -15,12 +16,12 @@ namespace LibGit2Sharp
         public CommitFilter()
         {
             SortBy = CommitSortStrategies.Time;
-            Since = "HEAD";
+            IncludeReachableFrom = "HEAD";
             FirstParentOnly = false;
         }
 
         /// <summary>
-        /// The ordering stragtegy to use.
+        /// The ordering strategy to use.
         /// <para>
         ///   By default, the commits are shown in reverse chronological order.
         /// </para>
@@ -36,11 +37,11 @@ namespace LibGit2Sharp
         ///   By default, the <see cref="Repository.Head"/> will be used as boundary.
         /// </para>
         /// </summary>
-        public object Since { get; set; }
+        public object IncludeReachableFrom { get; set; }
 
         internal IList<object> SinceList
         {
-            get { return ToList(Since); }
+            get { return ToList(IncludeReachableFrom); }
         }
 
         /// <summary>
@@ -62,11 +63,11 @@ namespace LibGit2Sharp
         ///   a <see cref="TagAnnotation"/>, an <see cref="ObjectId"/> or even a mixed collection of all of the above.
         /// </para>
         /// </summary>
-        public object Until { get; set; }
+        public object ExcludeReachableFrom { get; set; }
 
         internal IList<object> UntilList
         {
-            get { return ToList(Until); }
+            get { return ToList(ExcludeReachableFrom); }
         }
 
         /// <summary>

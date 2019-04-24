@@ -33,8 +33,8 @@ namespace LibGit2Sharp.Tests
                 Assert.False(repo.Info.IsBare);
 
                 Assert.True(File.Exists(Path.Combine(scd.RootedDirectoryPath, "master.txt")));
-                Assert.Equal(repo.Head.FriendlyName, "master");
-                Assert.Equal(repo.Head.Tip.Id.ToString(), "49322bb17d3acc9146f98c97d078513228bbf3c0");
+                Assert.Equal("master", repo.Head.FriendlyName);
+                Assert.Equal("49322bb17d3acc9146f98c97d078513228bbf3c0", repo.Head.Tip.Id.ToString());
             }
         }
 
@@ -74,14 +74,14 @@ namespace LibGit2Sharp.Tests
                 Assert.Equal(isCloningAnEmptyRepository ? 0 : 1, clonedRepo.Branches.Count(b => !b.IsRemote));
 
                 Assert.Equal(originalRepo.Tags.Count(), clonedRepo.Tags.Count());
-                Assert.Equal(1, clonedRepo.Network.Remotes.Count());
+                Assert.Single(clonedRepo.Network.Remotes);
             }
         }
 
         [Fact]
         public void CanCloneALocalRepositoryFromALocalUri()
         {
-            var uri = new Uri(Path.GetFullPath(BareTestRepoPath));
+            var uri = new Uri($"file://{Path.GetFullPath(BareTestRepoPath)}");
             AssertLocalClone(uri.AbsoluteUri, BareTestRepoPath);
         }
 
@@ -263,7 +263,7 @@ namespace LibGit2Sharp.Tests
                         Assert.True(valid);
                         var x509 = ((CertificateX509)cert).Certificate;
                         // we get a string with the different fields instead of a structure, so...
-                        Assert.True(x509.Subject.Contains("CN=github.com,"));
+                        Assert.Contains("CN=github.com,", x509.Subject);
                         checksHappy = true;
                         return false;
                     }
@@ -361,7 +361,7 @@ namespace LibGit2Sharp.Tests
         [Fact]
         public void CanRecursivelyCloneSubmodules()
         {
-            var uri = new Uri(Path.GetFullPath(SandboxSubmoduleSmallTestRepo()));
+            var uri = new Uri($"file://{Path.GetFullPath(SandboxSubmoduleSmallTestRepo())}");
             var scd = BuildSelfCleaningDirectory();
             string relativeSubmodulePath = "submodule_target_wd";
 
@@ -512,7 +512,7 @@ namespace LibGit2Sharp.Tests
         [Fact]
         public void CanCancelRecursiveClone()
         {
-            var uri = new Uri(Path.GetFullPath(SandboxSubmoduleSmallTestRepo()));
+            var uri = new Uri($"file://{Path.GetFullPath(SandboxSubmoduleSmallTestRepo())}");
             var scd = BuildSelfCleaningDirectory();
             string relativeSubmodulePath = "submodule_target_wd";
 
@@ -556,6 +556,55 @@ namespace LibGit2Sharp.Tests
                              submoduleStatus);
 
             }
+        }
+
+        [Fact]
+        public void CannotCloneWithForbiddenCustomHeaders()
+        {
+            var scd = BuildSelfCleaningDirectory();
+
+            const string url = "https://github.com/libgit2/TestGitRepository";
+
+            const string knownHeader = "User-Agent: mygit-201";
+            var cloneOptions = new CloneOptions()
+            {
+                FetchOptions = new FetchOptions { CustomHeaders = new String[] { knownHeader } }
+            };
+
+            Assert.Throws<LibGit2SharpException>(() => Repository.Clone(url, scd.DirectoryPath, cloneOptions));
+        }
+
+        [Fact]
+        public void CannotCloneWithMalformedCustomHeaders()
+        {
+            var scd = BuildSelfCleaningDirectory();
+
+            const string url = "https://github.com/libgit2/TestGitRepository";
+
+            const string knownHeader = "hello world";
+            var cloneOptions = new CloneOptions()
+            {
+                FetchOptions = new FetchOptions { CustomHeaders = new String[] { knownHeader } }
+            };
+
+            Assert.Throws<LibGit2SharpException>(() => Repository.Clone(url, scd.DirectoryPath, cloneOptions));
+        }
+
+        [Fact]
+        public void CanCloneWithCustomHeaders()
+        {
+            var scd = BuildSelfCleaningDirectory();
+
+            const string url = "https://github.com/libgit2/TestGitRepository";
+
+            const string knownHeader = "X-Hello: world";
+            var cloneOptions = new CloneOptions()
+            {
+                FetchOptions = new FetchOptions { CustomHeaders = new String[] { knownHeader } }
+            };
+
+            var clonedRepoPath = Repository.Clone(url, scd.DirectoryPath, cloneOptions);
+            Assert.True(Directory.Exists(clonedRepoPath));
         }
     }
 }

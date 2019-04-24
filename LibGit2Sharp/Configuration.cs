@@ -19,8 +19,9 @@ namespace LibGit2Sharp
         private readonly FilePath globalConfigPath;
         private readonly FilePath xdgConfigPath;
         private readonly FilePath systemConfigPath;
+        private readonly FilePath programDataConfigPath;
 
-        private ConfigurationSafeHandle configHandle;
+        private ConfigurationHandle configHandle;
 
         /// <summary>
         /// Needed for mocking purposes.
@@ -43,6 +44,7 @@ namespace LibGit2Sharp
             globalConfigPath = globalConfigurationFileLocation ?? Proxy.git_config_find_global();
             xdgConfigPath = xdgConfigurationFileLocation ?? Proxy.git_config_find_xdg();
             systemConfigPath = systemConfigurationFileLocation ?? Proxy.git_config_find_system();
+            programDataConfigPath = Proxy.git_config_find_programdata();
 
             Init(repository);
         }
@@ -50,36 +52,42 @@ namespace LibGit2Sharp
         private void Init(Repository repository)
         {
             configHandle = Proxy.git_config_new();
+            RepositoryHandle repoHandle = (repository != null) ? repository.Handle : null;
 
-            if (repository != null)
+            if (repoHandle != null)
             {
                 //TODO: push back this logic into libgit2.
                 // As stated by @carlosmn "having a helper function to load the defaults and then allowing you
                 // to modify it before giving it to git_repository_open_ext() would be a good addition, I think."
                 //  -- Agreed :)
                 string repoConfigLocation = Path.Combine(repository.Info.Path, "config");
-                Proxy.git_config_add_file_ondisk(configHandle, repoConfigLocation, ConfigurationLevel.Local);
+                Proxy.git_config_add_file_ondisk(configHandle, repoConfigLocation, ConfigurationLevel.Local, repoHandle);
 
-                Proxy.git_repository_set_config(repository.Handle, configHandle);
+                Proxy.git_repository_set_config(repoHandle, configHandle);
             }
             else if (repoConfigPath != null)
             {
-                Proxy.git_config_add_file_ondisk(configHandle, repoConfigPath, ConfigurationLevel.Local);
+                Proxy.git_config_add_file_ondisk(configHandle, repoConfigPath, ConfigurationLevel.Local, repoHandle);
             }
 
             if (globalConfigPath != null)
             {
-                Proxy.git_config_add_file_ondisk(configHandle, globalConfigPath, ConfigurationLevel.Global);
+                Proxy.git_config_add_file_ondisk(configHandle, globalConfigPath, ConfigurationLevel.Global, repoHandle);
             }
 
             if (xdgConfigPath != null)
             {
-                Proxy.git_config_add_file_ondisk(configHandle, xdgConfigPath, ConfigurationLevel.Xdg);
+                Proxy.git_config_add_file_ondisk(configHandle, xdgConfigPath, ConfigurationLevel.Xdg, repoHandle);
             }
 
             if (systemConfigPath != null)
             {
-                Proxy.git_config_add_file_ondisk(configHandle, systemConfigPath, ConfigurationLevel.System);
+                Proxy.git_config_add_file_ondisk(configHandle, systemConfigPath, ConfigurationLevel.System, repoHandle);
+            }
+
+            if (programDataConfigPath != null)
+            {
+                Proxy.git_config_add_file_ondisk(configHandle, programDataConfigPath, ConfigurationLevel.ProgramData, repoHandle);
             }
         }
 
@@ -196,42 +204,12 @@ namespace LibGit2Sharp
         }
 
         /// <summary>
-        /// Access configuration values without a repository. Generally you want to access configuration via an instance of <see cref="Repository"/> instead.
-        /// </summary>
-        /// <param name="globalConfigurationFileLocation">Path to a Global configuration file. If null, the default path for a global configuration file will be probed.</param>
-        [Obsolete("This method will be removed in the next release. Please use Configuration.BuildFrom(string, string) instead.")]
-        public Configuration(string globalConfigurationFileLocation)
-            : this(null, null, globalConfigurationFileLocation, null, null)
-        { }
-
-        /// <summary>
-        /// Access configuration values without a repository. Generally you want to access configuration via an instance of <see cref="Repository"/> instead.
-        /// </summary>
-        /// <param name="globalConfigurationFileLocation">Path to a Global configuration file. If null, the default path for a global configuration file will be probed.</param>
-        /// <param name="xdgConfigurationFileLocation">Path to a XDG configuration file. If null, the default path for a XDG configuration file will be probed.</param>
-        [Obsolete("This method will be removed in the next release. Please use Configuration.BuildFrom(string, string, string) instead.")]
-        public Configuration(string globalConfigurationFileLocation, string xdgConfigurationFileLocation)
-            : this(null, null, globalConfigurationFileLocation, xdgConfigurationFileLocation, null)
-        { }
-
-        /// <summary>
-        /// Access configuration values without a repository. Generally you want to access configuration via an instance of <see cref="Repository"/> instead.
-        /// </summary>
-        /// <param name="globalConfigurationFileLocation">Path to a Global configuration file. If null, the default path for a global configuration file will be probed.</param>
-        /// <param name="xdgConfigurationFileLocation">Path to a XDG configuration file. If null, the default path for a XDG configuration file will be probed.</param>
-        /// <param name="systemConfigurationFileLocation">Path to a System configuration file. If null, the default path for a system configuration file will be probed.</param>
-        [Obsolete("This method will be removed in the next release. Please use Configuration.BuildFrom(string, string, string, string) instead.")]
-        public Configuration(string globalConfigurationFileLocation, string xdgConfigurationFileLocation, string systemConfigurationFileLocation)
-            : this(null, null, globalConfigurationFileLocation, xdgConfigurationFileLocation, systemConfigurationFileLocation)
-        { }
-
-        /// <summary>
         /// Determines which configuration file has been found.
         /// </summary>
         public virtual bool HasConfig(ConfigurationLevel level)
         {
-            using (ConfigurationSafeHandle snapshot = Snapshot())
-            using (ConfigurationSafeHandle handle = RetrieveConfigurationHandle(level, false, snapshot))
+            using (ConfigurationHandle snapshot = Snapshot())
+            using (ConfigurationHandle handle = RetrieveConfigurationHandle(level, false, snapshot))
             {
                 return handle != null;
             }
@@ -269,7 +247,7 @@ namespace LibGit2Sharp
         {
             Ensure.ArgumentNotNullOrEmptyString(key, "key");
 
-            using (ConfigurationSafeHandle h = RetrieveConfigurationHandle(level, true, configHandle))
+            using (ConfigurationHandle h = RetrieveConfigurationHandle(level, true, configHandle))
             {
                 Proxy.git_config_delete(h, key);
             }
@@ -279,7 +257,7 @@ namespace LibGit2Sharp
         {
             Ensure.ArgumentNotNullOrEmptyString(key, "key");
 
-            using (ConfigurationSafeHandle h = RetrieveConfigurationHandle(level, true, configHandle))
+            using (ConfigurationHandle h = RetrieveConfigurationHandle(level, true, configHandle))
             {
                 Proxy.git_config_delete_multivar(h, key);
             }
@@ -384,7 +362,7 @@ namespace LibGit2Sharp
         {
             Ensure.ArgumentNotNullOrEmptyString(key, "key");
 
-            using (ConfigurationSafeHandle snapshot = Snapshot())
+            using (ConfigurationHandle snapshot = Snapshot())
             {
                 return Proxy.git_config_get_entry<T>(snapshot, key);
             }
@@ -415,8 +393,8 @@ namespace LibGit2Sharp
         {
             Ensure.ArgumentNotNullOrEmptyString(key, "key");
 
-            using (ConfigurationSafeHandle snapshot = Snapshot())
-            using (ConfigurationSafeHandle handle = RetrieveConfigurationHandle(level, false, snapshot))
+            using (ConfigurationHandle snapshot = Snapshot())
+            using (ConfigurationHandle handle = RetrieveConfigurationHandle(level, false, snapshot))
             {
                 if (handle == null)
                 {
@@ -645,7 +623,7 @@ namespace LibGit2Sharp
             Ensure.ArgumentNotNull(value, "value");
             Ensure.ArgumentNotNullOrEmptyString(key, "key");
 
-            using (ConfigurationSafeHandle h = RetrieveConfigurationHandle(level, true, configHandle))
+            using (ConfigurationHandle h = RetrieveConfigurationHandle(level, true, configHandle))
             {
                 if (!configurationTypedUpdater.ContainsKey(typeof(T)))
                 {
@@ -676,16 +654,16 @@ namespace LibGit2Sharp
         {
             Ensure.ArgumentNotNullOrEmptyString(regexp, "regexp");
 
-            using (ConfigurationSafeHandle snapshot = Snapshot())
-            using (ConfigurationSafeHandle h = RetrieveConfigurationHandle(level, true, snapshot))
+            using (ConfigurationHandle snapshot = Snapshot())
+            using (ConfigurationHandle h = RetrieveConfigurationHandle(level, true, snapshot))
             {
-                return Proxy.git_config_iterator_glob(h, regexp, BuildConfigEntry).ToList();
+                return Proxy.git_config_iterator_glob(h, regexp).ToList();
             }
         }
 
-        private ConfigurationSafeHandle RetrieveConfigurationHandle(ConfigurationLevel level, bool throwIfStoreHasNotBeenFound, ConfigurationSafeHandle fromHandle)
+        private ConfigurationHandle RetrieveConfigurationHandle(ConfigurationLevel level, bool throwIfStoreHasNotBeenFound, ConfigurationHandle fromHandle)
         {
-            ConfigurationSafeHandle handle = null;
+            ConfigurationHandle handle = null;
             if (fromHandle != null)
             {
                 handle = Proxy.git_config_open_level(fromHandle, level);
@@ -693,20 +671,19 @@ namespace LibGit2Sharp
 
             if (handle == null && throwIfStoreHasNotBeenFound)
             {
-                throw new LibGit2SharpException(string.Format(CultureInfo.InvariantCulture,
-                                                              "No {0} configuration file has been found.",
-                                                              Enum.GetName(typeof(ConfigurationLevel), level)));
+                throw new LibGit2SharpException("No {0} configuration file has been found.",
+                                                              Enum.GetName(typeof(ConfigurationLevel), level));
             }
 
             return handle;
         }
 
-        private static Action<string, object, ConfigurationSafeHandle> GetUpdater<T>(Action<ConfigurationSafeHandle, string, T> setter)
+        private static Action<string, object, ConfigurationHandle> GetUpdater<T>(Action<ConfigurationHandle, string, T> setter)
         {
             return (key, val, handle) => setter(handle, key, (T)val);
         }
 
-        private readonly static IDictionary<Type, Action<string, object, ConfigurationSafeHandle>> configurationTypedUpdater = new Dictionary<Type, Action<string, object, ConfigurationSafeHandle>>
+        private readonly static IDictionary<Type, Action<string, object, ConfigurationHandle>> configurationTypedUpdater = new Dictionary<Type, Action<string, object, ConfigurationHandle>>
         {
             { typeof(int), GetUpdater<int>(Proxy.git_config_set_int32) },
             { typeof(long), GetUpdater<long>(Proxy.git_config_set_int64) },
@@ -733,22 +710,17 @@ namespace LibGit2Sharp
             return Proxy.git_config_foreach(configHandle, BuildConfigEntry);
         }
 
-        private static ConfigurationEntry<string> BuildConfigEntry(IntPtr entryPtr)
+        internal static unsafe ConfigurationEntry<string> BuildConfigEntry(IntPtr entryPtr)
         {
-            var entry = entryPtr.MarshalAs<GitConfigEntry>();
-
-            return new ConfigurationEntry<string>(LaxUtf8Marshaler.FromNative(entry.namePtr),
-                                                  LaxUtf8Marshaler.FromNative(entry.valuePtr),
-                                                  (ConfigurationLevel)entry.level);
+            var entry = (GitConfigEntry*)entryPtr.ToPointer();
+            return new ConfigurationEntry<string>(LaxUtf8Marshaler.FromNative(entry->namePtr),
+                                                  LaxUtf8Marshaler.FromNative(entry->valuePtr),
+                                                  (ConfigurationLevel)entry->level);
         }
 
         /// <summary>
-        /// Builds a <see cref="Signature"/> based on current configuration.
-        /// <para>
-        ///    Name is populated from the user.name setting, and is "unknown" if unspecified.
-        ///    Email is populated from the user.email setting, and is built from
-        ///    <see cref="Environment.UserName"/> and <see cref="Environment.UserDomainName"/> if unspecified.
-        /// </para>
+        /// Builds a <see cref="Signature"/> based on current configuration. If it is not found or
+        /// some configuration is missing, <code>null</code> is returned.
         /// <para>
         ///    The same escalation logic than in git.git will be used when looking for the key in the config files:
         ///       - local: the Git file in the current repository
@@ -758,56 +730,59 @@ namespace LibGit2Sharp
         /// </para>
         /// </summary>
         /// <param name="now">The timestamp to use for the <see cref="Signature"/>.</param>
-        /// <returns>The signature.</returns>
+        /// <returns>The signature or null if no user identity can be found in the configuration.</returns>
         public virtual Signature BuildSignature(DateTimeOffset now)
         {
-            return BuildSignature(now, false);
-        }
+            var name = this.GetValueOrDefault<string>("user.name");
+            var email = this.GetValueOrDefault<string>("user.email");
 
-        internal Signature BuildSignature(DateTimeOffset now, bool shouldThrowIfNotFound)
-        {
-            const string userNameKey = "user.name";
-            var name = this.GetValueOrDefault<string>(userNameKey);
-            var normalizedName = NormalizeUserSetting(shouldThrowIfNotFound,
-                                                      userNameKey,
-                                                      name,
-                                                      () => "unknown");
-
-            const string userEmailKey = "user.email";
-            var email = this.GetValueOrDefault<string>(userEmailKey);
-            var normalizedEmail = NormalizeUserSetting(shouldThrowIfNotFound,
-                                                       userEmailKey,
-                                                       email,
-                                                       () => string.Format(CultureInfo.InvariantCulture,
-                                                                           "{0}@{1}",
-                                                                           Environment.UserName,
-                                                                           Environment.UserDomainName));
-
-            return new Signature(normalizedName, normalizedEmail, now);
-        }
-
-        private string NormalizeUserSetting(bool shouldThrowIfNotFound, string entryName, string currentValue, Func<string> defaultValue)
-        {
-            if (!string.IsNullOrEmpty(currentValue))
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(email))
             {
-                return currentValue;
+                return null;
             }
 
-            string message = string.Format("Configuration value '{0}' is missing or invalid.", entryName);
-
-            if (shouldThrowIfNotFound)
-            {
-                throw new LibGit2SharpException(message);
-            }
-
-            Log.Write(LogLevel.Warning, message);
-
-            return defaultValue();
+            return new Signature(name, email, now);
         }
 
-        private ConfigurationSafeHandle Snapshot()
+        internal Signature BuildSignatureOrThrow(DateTimeOffset now)
+        {
+            var signature = BuildSignature(now);
+            if (signature == null)
+            {
+                throw new LibGit2SharpException("This overload requires 'user.name' and 'user.email' to be set. " +
+                                                "Use a different overload or set those variables in the configuation");
+            }
+
+            return signature;
+        }
+
+        private ConfigurationHandle Snapshot()
         {
             return Proxy.git_config_snapshot(configHandle);
+        }
+
+        /// <summary>
+        /// Perform a series of actions within a transaction.
+        ///
+        /// The configuration will be locked during this function and the changes will be committed at the end. These
+        /// changes will not be visible in the configuration until the end of this method.
+        ///
+        /// If the action throws an exception, the changes will be rolled back.
+        /// </summary>
+        /// <param name="action">The code to run under the transaction</param>
+        public virtual unsafe void WithinTransaction(Action action)
+        {
+            IntPtr txn = IntPtr.Zero;
+            try
+            {
+                txn = Proxy.git_config_lock(configHandle);
+                action();
+                Proxy.git_transaction_commit(txn);
+            }
+            finally
+            {
+                Proxy.git_transaction_free(txn);
+            }
         }
     }
 }

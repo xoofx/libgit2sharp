@@ -5,11 +5,11 @@ using LibGit2Sharp.Core.Handles;
 namespace LibGit2Sharp.Core
 {
     [StructLayout(LayoutKind.Sequential)]
-    internal struct GitRevSpec
+    internal unsafe struct GitRevSpec
     {
-        public IntPtr From;
+        public git_object* From;
 
-        public IntPtr To;
+        public git_object* To;
 
         public RevSpecType Type;
     }

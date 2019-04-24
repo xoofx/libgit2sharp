@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using LibGit2Sharp.Core;
+using LibGit2Sharp.Core.Handles;
 
 namespace LibGit2Sharp
 {
@@ -75,13 +77,15 @@ namespace LibGit2Sharp
 
                 try
                 {
-                    subtransport = new T().GitSmartSubtransportPointer;
+                    var obj = new T();
+                    obj.Transport = transport;
+                    subtransport = obj.GitSmartSubtransportPointer;
 
                     return 0;
                 }
                 catch (Exception ex)
                 {
-                    Proxy.giterr_set_str(GitErrorCategory.Net, ex);
+                    Proxy.git_error_set_str(GitErrorCategory.Net, ex);
                 }
 
                 return (int)GitErrorCode.Error;
@@ -100,7 +104,7 @@ namespace LibGit2Sharp
                 }
                 catch (Exception ex)
                 {
-                    Proxy.giterr_set_str(GitErrorCategory.Net, ex);
+                    Proxy.git_error_set_str(GitErrorCategory.Net, ex);
                 }
 
                 return (int)GitErrorCode.Error;

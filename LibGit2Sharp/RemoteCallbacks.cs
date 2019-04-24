@@ -59,7 +59,7 @@ namespace LibGit2Sharp
         private readonly UpdateTipsHandler UpdateTips;
 
         /// <summary>
-        /// PushStatusError callback. It will be called when the libgit2 push_update_reference returns a non null status message, 
+        /// PushStatusError callback. It will be called when the libgit2 push_update_reference returns a non null status message,
         /// which means that the update was rejected by the remote server.
         /// </summary>
         private readonly PushStatusErrorHandler PushStatusError;
@@ -97,7 +97,7 @@ namespace LibGit2Sharp
         /// </summary>
         private readonly CertificateCheckHandler CertificateCheck;
 
-        internal GitRemoteCallbacks GenerateCallbacks()
+        internal unsafe GitRemoteCallbacks GenerateCallbacks()
         {
             var callbacks = new GitRemoteCallbacks { version = 1 };
 
@@ -266,10 +266,10 @@ namespace LibGit2Sharp
         }
 
         private int GitCredentialHandler(
-            out IntPtr ptr, 
-            IntPtr cUrl, 
-            IntPtr usernameFromUrl, 
-            GitCredentialType credTypes, 
+            out IntPtr ptr,
+            IntPtr cUrl,
+            IntPtr usernameFromUrl,
+            GitCredentialType credTypes,
             IntPtr payload)
         {
             string url = LaxUtf8Marshaler.FromNative(cUrl);
@@ -285,24 +285,35 @@ namespace LibGit2Sharp
                 types |= SupportedCredentialTypes.Default;
             }
 
-            var cred = CredentialsProvider(url, username, types);
-
-            return cred.GitCredentialHandler(out ptr);
+            ptr = IntPtr.Zero;
+            try
+            {
+                var cred = CredentialsProvider(url, username, types);
+                if (cred == null)
+                {
+                    return (int)GitErrorCode.PassThrough;
+                }
+                return cred.GitCredentialHandler(out ptr);
+            }
+            catch (Exception exception)
+            {
+                Proxy.git_error_set_str(GitErrorCategory.Callback, exception);
+                return (int)GitErrorCode.Error;
+            }
         }
 
-        private int GitCertificateCheck(IntPtr certPtr, int valid, IntPtr cHostname, IntPtr payload)
+        private unsafe int GitCertificateCheck(git_certificate* certPtr, int valid, IntPtr cHostname, IntPtr payload)
         {
             string hostname = LaxUtf8Marshaler.FromNative(cHostname);
-            GitCertificate baseCert = certPtr.MarshalAs<GitCertificate>();
             Certificate cert = null;
 
-            switch (baseCert.type)
+            switch (certPtr->type)
             {
                 case GitCertificateType.X509:
-                    cert = new CertificateX509(certPtr.MarshalAs<GitCertificateX509>());
+                    cert = new CertificateX509((git_certificate_x509*) certPtr);
                     break;
                 case GitCertificateType.Hostkey:
-                    cert = new CertificateSsh(certPtr.MarshalAs<GitCertificateSsh>());
+                    cert = new CertificateSsh((git_certificate_ssh*) certPtr);
                     break;
             }
 
@@ -313,7 +324,7 @@ namespace LibGit2Sharp
             }
             catch (Exception exception)
             {
-                Proxy.giterr_set_str(GitErrorCategory.Callback, exception);
+                Proxy.git_error_set_str(GitErrorCategory.Callback, exception);
             }
 
             return Proxy.ConvertResultToCancelFlag(result);
@@ -344,8 +355,7 @@ namespace LibGit2Sharp
                             throw new NullReferenceException("Unexpected null git_push_update pointer was encountered");
                         }
 
-                        GitPushUpdate gitPushUpdate = ptr[i].MarshalAs<GitPushUpdate>();
-                        PushUpdate pushUpdate = new PushUpdate(gitPushUpdate);
+                        PushUpdate pushUpdate = new PushUpdate((git_push_update*) ptr[i].ToPointer());
                         pushUpdates[i] = pushUpdate;
                     }
 
@@ -355,7 +365,7 @@ namespace LibGit2Sharp
             catch (Exception exception)
             {
                 Log.Write(LogLevel.Error, exception.ToString());
-                Proxy.giterr_set_str(GitErrorCategory.Callback, exception);
+                Proxy.git_error_set_str(GitErrorCategory.Callback, exception);
                 result = false;
             }
 

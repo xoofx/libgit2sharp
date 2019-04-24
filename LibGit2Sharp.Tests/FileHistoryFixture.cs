@@ -30,7 +30,7 @@ namespace LibGit2Sharp.Tests
                 // $ git log --follow --format=oneline untouched.txt
                 // c10c1d5f74b76f20386d18674bf63fbee6995061 Initial commit
                 fileHistoryEntries = repo.Commits.QueryBy("untouched.txt").ToList();
-                Assert.Equal(1, fileHistoryEntries.Count());
+                Assert.Single(fileHistoryEntries);
                 Assert.Equal("c10c1d5f74b76f20386d18674bf63fbee6995061", fileHistoryEntries[0].Commit.Sha);
 
                 // $ git log --follow --format=oneline under-test.txt
@@ -94,11 +94,11 @@ namespace LibGit2Sharp.Tests
                     dummy, master9);
 
                 repo.CreateBranch("master", master10);
-                repo.Checkout("master", new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force });
+                Commands.Checkout(repo, "master", new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force });
 
                 // Test --date-order.
                 var timeHistory = repo.Commits.QueryBy(path,
-                    new FollowFilter { SortBy = CommitSortStrategies.Time });
+                    new CommitFilter { SortBy = CommitSortStrategies.Time });
                 var timeCommits = new List<Commit>
                 {
                     master10, // master
@@ -117,7 +117,7 @@ namespace LibGit2Sharp.Tests
 
                 // Test --topo-order.
                 var topoHistory = repo.Commits.QueryBy(path,
-                    new FollowFilter { SortBy = CommitSortStrategies.Topological });
+                    new CommitFilter { SortBy = CommitSortStrategies.Topological });
                 var topoCommits = new List<Commit>
                 {
                     master10, // master
@@ -151,8 +151,8 @@ namespace LibGit2Sharp.Tests
                 var commit2 = MakeAndCommitChange(repo, repoPath, path1, "Hello World again");
 
                 // Move the first file to a new directory.
-                var newPath1 = Path.Combine(SubFolderPath1, path1);
-                repo.Move(path1, newPath1);
+                var newPath1 = Path.Combine(SubFolderPath1, path1).Replace(@"\", "/");
+                Commands.Move(repo, path1, newPath1);
                 var commit3 = repo.Commit("Moved " + path1 + " to " + newPath1,
                     Constants.Signature, Constants.Signature);
 
@@ -161,7 +161,8 @@ namespace LibGit2Sharp.Tests
                 var commit4 = MakeAndCommitChange(repo, repoPath, newPath1, "I have done it again!");
 
                 // Perform tests.
-                var fileHistoryEntries = repo.Commits.QueryBy(newPath1).ToList();
+                var commitFilter = new CommitFilter () { SortBy = CommitSortStrategies.Topological };
+                var fileHistoryEntries = repo.Commits.QueryBy(newPath1, commitFilter).ToList();
                 var changedBlobs = fileHistoryEntries.Blobs().Distinct().ToList();
 
                 Assert.Equal(4, fileHistoryEntries.Count());
@@ -222,8 +223,8 @@ namespace LibGit2Sharp.Tests
                 IEnumerable<LogEntry> history = repo.Commits.QueryBy(path).ToList();
                 var changedBlobs = history.Blobs().Distinct();
 
-                Assert.Equal(1, history.Count());
-                Assert.Equal(1, changedBlobs.Count());
+                Assert.Single(history);
+                Assert.Single(changedBlobs);
 
                 Assert.Equal(path, history.First().Path);
                 Assert.Equal(commit, history.First().Commit);
@@ -238,8 +239,8 @@ namespace LibGit2Sharp.Tests
             using (var repo = new Repository(repoPath))
             {
                 IEnumerable<LogEntry> history = repo.Commits.QueryBy("Test.txt").ToList();
-                Assert.Equal(0, history.Count());
-                Assert.Equal(0, history.Blobs().Count());
+                Assert.Empty(history);
+                Assert.Empty(history.Blobs());
             }
         }
 
@@ -255,33 +256,33 @@ namespace LibGit2Sharp.Tests
                 MakeAndCommitChange(repo, repoPath, path, "Hello World");
 
                 Assert.Throws<ArgumentException>(() =>
-                    repo.Commits.QueryBy(path, new FollowFilter
+                    repo.Commits.QueryBy(path, new CommitFilter
                     {
                         SortBy = CommitSortStrategies.None
                     }));
 
                 Assert.Throws<ArgumentException>(() =>
-                    repo.Commits.QueryBy(path, new FollowFilter
+                    repo.Commits.QueryBy(path, new CommitFilter
                     {
                         SortBy = CommitSortStrategies.Reverse
                     }));
 
                 Assert.Throws<ArgumentException>(() =>
-                    repo.Commits.QueryBy(path, new FollowFilter
+                    repo.Commits.QueryBy(path, new CommitFilter
                     {
                         SortBy = CommitSortStrategies.Reverse |
                                  CommitSortStrategies.Topological
                     }));
 
                 Assert.Throws<ArgumentException>(() =>
-                    repo.Commits.QueryBy(path, new FollowFilter
+                    repo.Commits.QueryBy(path, new CommitFilter
                     {
                         SortBy = CommitSortStrategies.Reverse |
                                  CommitSortStrategies.Time
                     }));
 
                 Assert.Throws<ArgumentException>(() =>
-                    repo.Commits.QueryBy(path, new FollowFilter
+                    repo.Commits.QueryBy(path, new CommitFilter
                     {
                         SortBy = CommitSortStrategies.Reverse |
                                  CommitSortStrategies.Topological |
@@ -365,7 +366,7 @@ namespace LibGit2Sharp.Tests
             string message = null)
         {
             Touch(repoPath, path, text);
-            repo.Stage(path);
+            Commands.Stage(repo, path);
 
             var commitSignature = GetNextSignature();
             return repo.Commit(message ?? "Changed " + path, commitSignature, commitSignature);

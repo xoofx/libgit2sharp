@@ -8,7 +8,7 @@ namespace LibGit2Sharp.Core
     {
         static GitOdbBackend()
         {
-            GCHandleOffset = Marshal.OffsetOf(typeof(GitOdbBackend), "GCHandle").ToInt32();
+            GCHandleOffset = Marshal.OffsetOf<GitOdbBackend>(nameof(GCHandle)).ToInt32();
         }
 
         public uint Version;
@@ -34,6 +34,7 @@ namespace LibGit2Sharp.Core
         public IntPtr Refresh;
         public foreach_callback Foreach;
         public IntPtr Writepack;
+        public IntPtr Freshen;
         public free_callback Free;
 
         /* The libgit2 structure definition ends here. Subsequent fields are for libgit2sharp bookkeeping. */
@@ -54,6 +55,7 @@ namespace LibGit2Sharp.Core
         /// <param name="backend">[in] A pointer to the backend which is being asked to perform the task.</param>
         /// <param name="oid">[in] The OID which the backend is being asked to look up.</param>
         /// <returns>0 if successful; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int read_callback(
             out IntPtr buffer_p,
             out UIntPtr len_p,
@@ -76,6 +78,7 @@ namespace LibGit2Sharp.Core
         /// <param name="short_oid">[in] The short-form OID which the backend is being asked to look up.</param>
         /// <param name="len">[in] The length of the short-form OID (short_oid).</param>
         /// <returns>0 if successful; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int read_prefix_callback(
             out GitOid out_oid,
             out IntPtr buffer_p,
@@ -94,6 +97,7 @@ namespace LibGit2Sharp.Core
         /// <param name="backend">[in] A pointer to the backend which is being asked to perform the task.</param>
         /// <param name="oid">[in] The OID which the backend is being asked to look up.</param>
         /// <returns>0 if successful; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int read_header_callback(
             out UIntPtr len_p,
             out GitObjectType type_p,
@@ -110,6 +114,7 @@ namespace LibGit2Sharp.Core
         /// <param name="len">[in] The length of the buffer pointed to by data.</param>
         /// <param name="type">[in] The type of the object.</param>
         /// <returns>0 if successful; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int write_callback(
             IntPtr backend,
             ref GitOid oid,
@@ -127,6 +132,7 @@ namespace LibGit2Sharp.Core
         /// <param name="length">[in] The length of the object's contents.</param>
         /// <param name="type">[in] The type of the object being written.</param>
         /// <returns>0 if successful; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int writestream_callback(
             out IntPtr stream_out,
             IntPtr backend,
@@ -141,6 +147,7 @@ namespace LibGit2Sharp.Core
         /// <param name="backend">[in] A pointer to the backend which is being asked to perform the task.</param>
         /// <param name="oid">[in] The object ID that the caller is requesting.</param>
         /// <returns>0 if successful; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int readstream_callback(
             out IntPtr stream_out,
             IntPtr backend,
@@ -153,6 +160,7 @@ namespace LibGit2Sharp.Core
         /// <param name="backend">[in] A pointer to the backend which is being asked to perform the task.</param>
         /// <param name="oid">[in] The object ID that the caller is requesting.</param>
         /// <returns>True if the object exists; false otherwise</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate bool exists_callback(
             IntPtr backend,
             ref GitOid oid);
@@ -168,6 +176,7 @@ namespace LibGit2Sharp.Core
         /// <param name="short_oid">[in] The short-form OID which the backend is being asked to look up.</param>
         /// <param name="len">[in] The length of the short-form OID (short_oid).</param>
         /// <returns>1 if the object exists, 0 if the object doesn't; an error code otherwise.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int exists_prefix_callback(
             ref GitOid found_oid,
             IntPtr backend,
@@ -181,6 +190,7 @@ namespace LibGit2Sharp.Core
         /// <param name="backend">[in] A pointer to the backend which is being asked to perform the task.</param>
         /// <param name="cb">[in] The callback function to invoke.</param>
         /// <param name="data">[in] An arbitrary parameter to pass through to the callback</param>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int foreach_callback(
             IntPtr backend,
             foreach_callback_callback cb,
@@ -190,6 +200,7 @@ namespace LibGit2Sharp.Core
         /// The owner of this backend is finished with it. The backend is asked to clean up and shut down.
         /// </summary>
         /// <param name="backend">[in] A pointer to the backend which is being freed.</param>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void free_callback(
             IntPtr backend);
 
@@ -199,6 +210,7 @@ namespace LibGit2Sharp.Core
         /// <param name="oid">The oid of each object in the backing store.</param>
         /// <param name="data">The arbitrary parameter given to foreach_callback.</param>
         /// <returns>A non-negative result indicates the enumeration should continue. Otherwise, the enumeration should stop.</returns>
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int foreach_callback_callback(
             IntPtr oid,
             IntPtr data);

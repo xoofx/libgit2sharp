@@ -42,7 +42,7 @@ namespace LibGit2Sharp
         /// or
         /// spec
         /// </exception>
-        public static RevSpec Parse(Repository repo, string spec)
+        public static unsafe RevSpec Parse(Repository repo, string spec)
         {
             if (repo == null)
             {
@@ -60,18 +60,18 @@ namespace LibGit2Sharp
 
             var revSpec = new RevSpec();
 
-            if (gitRevSpec.From != IntPtr.Zero)
+            if (gitRevSpec.From != (git_object*)0)
             {
-                using (var sh = new GitObjectSafeHandle(gitRevSpec.From))
+                using (var sh = new ObjectHandle(gitRevSpec.From, true))
                 {
                     var objType = Proxy.git_object_type(sh);
                     revSpec.From = GitObject.BuildFrom(repo, Proxy.git_object_id(sh), objType, null);
                 }
             }
 
-            if (gitRevSpec.To != IntPtr.Zero)
+            if (gitRevSpec.To != (git_object*)0)
             {
-                using (var sh = new GitObjectSafeHandle(gitRevSpec.To))
+                using (var sh = new ObjectHandle(gitRevSpec.To, true))
                 {
                     var objType = Proxy.git_object_type(sh);
                     revSpec.To = GitObject.BuildFrom(repo, Proxy.git_object_id(sh), objType, null);

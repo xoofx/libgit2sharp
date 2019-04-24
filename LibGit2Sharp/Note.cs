@@ -50,7 +50,7 @@ namespace LibGit2Sharp
         /// </summary>
         public virtual ObjectId TargetObjectId { get; private set; }
 
-        internal static Note BuildFromPtr(NoteSafeHandle note, string @namespace, ObjectId targetObjectId)
+        internal static Note BuildFromPtr(NoteHandle note, string @namespace, ObjectId targetObjectId)
         {
             ObjectId oid = Proxy.git_note_id(note);
             string message = Proxy.git_note_message(note);
@@ -115,8 +115,8 @@ namespace LibGit2Sharp
             {
                 return string.Format(CultureInfo.InvariantCulture,
                                      "Target \"{0}\", Namespace \"{1}\": {2}",
-                                     TargetObjectId.ToString(7), 
-                                     Namespace, 
+                                     TargetObjectId.ToString(7),
+                                     Namespace,
                                      Message);
             }
         }
